@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, type Academy } from "@/lib/api";
+import { api } from "@/lib/api";
+import { type Academy } from "@/types";
 import { AcademyCard } from "./academy-card";
 import { Skeleton } from "@/components/ui/skeleton";
 // Note: I haven't created Skeleton yet. I will create it or use a simple fallback.

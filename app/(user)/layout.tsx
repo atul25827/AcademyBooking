@@ -32,7 +32,7 @@ export default function UserLayout({
 
 
     return (
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen flex-col bg-white">
             <Header />
             <main className="flex-1 w-full container max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
                 {children}

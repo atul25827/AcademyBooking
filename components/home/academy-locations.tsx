@@ -67,7 +67,7 @@ export function AcademyLocations() {
                         initial={{ opacity: 0, x: -20 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl font-poppins font-medium text-[#33398A]"
+                        className="text-[20px] md:text-[24px] font-poppins font-medium text-[#33398A]"
                     >
                         Meril Academy
                     </motion.h2>
@@ -77,7 +77,7 @@ export function AcademyLocations() {
                             variant="outline"
                             size="icon"
                             onClick={() => scroll('left')}
-                            className="rounded-full w-12 h-12 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
+                            className="rounded-full md:w-12 md:h-12 w-10 h-10 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
@@ -85,7 +85,7 @@ export function AcademyLocations() {
                             variant="outline"
                             size="icon"
                             onClick={() => scroll('right')}
-                            className="rounded-full w-12 h-12 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
+                            className="rounded-full md:w-12 md:h-12 w-10 h-10 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
                         >
                             <ArrowRight className="w-5 h-5" />
                         </Button>
@@ -105,7 +105,7 @@ export function AcademyLocations() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: index * 0.1 }}
-                            className="flex-shrink-0 w-[85vw] sm:w-[400px] md:w-[486px] h-[320px] relative rounded-[16px] overflow-hidden snap-center group cursor-pointer"
+                            className="shrink-0 w-[85vw] sm:w-[400px] md:w-[486px] h-[320px] relative rounded-[16px] overflow-hidden snap-center group cursor-pointer"
                         >
                             <Image
                                 src={academy.image}

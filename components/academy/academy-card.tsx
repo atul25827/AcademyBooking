@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type Academy } from "@/lib/api";
+import { type Academy } from "@/types";
 import { useAuth } from "@/context/auth-context";
 import { Wifi, Monitor, Mic, Users } from "lucide-react";
 
@@ -19,7 +19,7 @@ export function AcademyCard({ academy }: { academy: Academy }) {
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-80" />
 
                 {/* Title */}
                 <div className="absolute top-6 left-6">
@@ -55,7 +55,7 @@ export function AcademyCard({ academy }: { academy: Academy }) {
             <Link href={isAuthenticated ? `/book?academyId=${academy.id}` : "/login"}>
                 <div className="absolute bottom-0 right-0 z-10">
                     <div className="bg-[#7D3FD0] hover:bg-[#6833ae] transition-colors w-[180px] h-[52px] rounded-tl-[24px] rounded-br-[24px] flex items-center justify-center shadow-lg cursor-pointer transform translate-y-2 translate-x-2 group-hover:translate-x-1 group-hover:translate-y-1 duration-300">
-                        <span className="text-white font-poppins font-medium text-lg">Book Now</span>
+                        <span className="text-white font-poppins font-medium text-lg ">Book Now</span>
                     </div>
                 </div>
             </Link>

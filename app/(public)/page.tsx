@@ -32,7 +32,7 @@ export default function Home() {
 
     return (
         <div
-            className="flex flex-col gap-0 pb-12 overflow-x-hidden min-h-screen"
+            className="flex flex-col gap-0 pb-10 overflow-x-hidden min-h-screen"
         >
             {/* Hero Section */}
             <section className="relative pt-12 pb-10 md:pt-20 md:pb-16 overflow-hidden">
@@ -61,19 +61,9 @@ export default function Home() {
                         </motion.p>
 
                         <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md pt-2">
-                            {/* Reusing existing search/CTA logic but styling it to match if needed. 
-                                Figma shows a simple 'Label' button, retaining functional Search/CTA flow for better UX */}
-                            {/* <div className="relative flex-1 group">
-                                <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
-                                <input
-                                    type="text"
-                                    placeholder="Search football, tennis..."
-                                    className="relative flex h-12 w-full rounded-full border border-slate-200 bg-white pl-10 pr-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/20 focus-visible:border-purple-500 shadow-sm transition-all"
-                                />
-                            </div> */}
                             {isAuthenticated ? (
                                 <Link href="/book">
-                                    <Button size="lg" className="w-full sm:w-auto h-12 rounded-full bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white px-8 font-medium">Book Now</Button>
+                                    <Button size="lg" className="w-full sm:w-auto h-12 rounded-[12px] bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white px-8 font-medium">Book Your Place</Button>
                                 </Link>
                             ) : (
                                 <Link href="/book">

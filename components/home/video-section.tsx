@@ -29,17 +29,10 @@ export function VideoSection() {
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-center max-w-5xl mx-auto"
+                        className="text-center mx-auto"
                     >
-                        <p className="text-[32px] md:text-3xl lg:text-4xl leading-relaxed font-poppins text-[#33398A] font-normal">
-                            Meril Academy is a global platform for lifelong learning, offering
-                            <span className="text-[#FDC814] inline-block relative">
-                                Knowledge-sharing programs
-                            </span> and
-                            <span className="text-[#FDC814] inline-block relative">
-                                Fellowship
-                            </span>
-                            opportunities to support the advancement of medical therapies and the healthcare community.
+                        <p className="capitalize sm:text-[24px] md:text-[32px] md:leading-[56px] font-poppins text-[#33398a] font-normal">
+                            Meril Academy is a global platform for lifelong learning, offering <span className="text-[#fdc814]">knowledge-sharing programs</span> and <span className="text-[#fdc814]">fellowship</span> opportunities to support the advancement of medical therapies and the healthcare community.
                         </p>
                     </motion.div>
 

@@ -14,7 +14,7 @@ export function Footer() {
                     {/* Brand Column */}
                     <div className="lg:col-span-4 flex flex-col gap-6">
                         <div className="flex items-center gap-2">
-                            <div className="h-10 w-10 bg-gradient-to-br from-[#7D3FD0] to-[#33398A] rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/10">
+                            <div className="h-10 w-10 bg-linear-to-br from-[#7D3FD0] to-[#33398A] rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/10">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">
                                     <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
                                     <path d="M6 12v5c3 3 9 3 12 0v-5" />
@@ -64,7 +64,7 @@ export function Footer() {
                     {/* Newsletter Column */}
                     <div className="lg:col-span-4">
                         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/50">
-                            <h4 className="font-bold text-lg text-[#33398A] mb-2">Stay Updated</h4>
+                            <h4 className="font-bold text-lg text-[#33398A] mb-2">Be informed!</h4>
                             <p className="text-sm text-slate-600 mb-4">
                                 Get the latest wellness tips, product launches
                                 & exclusive offers straight to your inbox.

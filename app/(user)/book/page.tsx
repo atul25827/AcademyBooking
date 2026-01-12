@@ -12,8 +12,7 @@ function BookPageContent() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">{academyId ? "Complete Booking" : "Book an Academy"}</h1>
-        <p className="text-muted-foreground">{academyId ? "Review details and confirm your slot." : "Select an academy to view available slots."}</p>
+        <h1 className="text-[24px] font-normal tracking-tight text-[#33398A]">{!academyId ? "Meril Conference Hall" : ""}</h1>
       </div>
 
       {academyId ? (
