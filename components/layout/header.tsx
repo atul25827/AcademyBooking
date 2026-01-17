@@ -23,8 +23,8 @@ export function Header() {
     // Navigation Items
     const navItems = [
         { name: "Home", href: "/", showAlways: true },
-        { name: "Book", href: "/book", protected: true },
-        { name: "Calendar", href: "/calendar", protected: true },
+        { name: "Book", href: "/book", showAlways: true },
+        { name: "Calendar", href: "/calendar", showAlways: true },
         { name: "My Bookings", href: "/my-bookings", protected: true },
         { name: "About Us", href: "/about", showAlways: true },
     ];
@@ -156,8 +156,8 @@ export function Header() {
                                             </div>
                                         </div>
                                         <Button
-                                            variant="destructive"
-                                            className="w-full rounded-[12px]"
+                                            // variant="destructive"
+                                            className="w-full bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded-[12px]"
                                             onClick={logout}
                                         >
                                             Logout

@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Badge, Eye, Search, Pencil, Trash2 } from "lucide-react";
+import { Eye, Search, Pencil, Trash2, MapPin, Calendar, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BookingStats } from "@/components/booking/booking-stats";
 
 // Removed StatusBadge component as we have a new one in the main component
 
@@ -49,25 +50,28 @@ export default function MyBookingsPage() {
         switch (status) {
             case "upcoming":
             case "approved":
-                return <span className="inline-flex items-center justify-center px-4 py-1 rounded-[4px] bg-[#D1FADF] text-[#027A48] text-xs font-medium">Approved</span>;
+                return <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-[#ECFDF3] text-[#027A48] text-xs font-medium border border-[#ABEFC6]">Approved</span>;
             case "cancelled":
             case "rejected":
-                return <span className="inline-flex items-center justify-center px-4 py-1 rounded-[4px] bg-[#FEE4E2] text-[#B42318] text-xs font-medium">Rejected</span>;
+                return <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-[#FEF3F2] text-[#B42318] text-xs font-medium border border-[#FECDCA]">Rejected</span>;
             default:
-                return <span className="inline-flex items-center justify-center px-4 py-1 rounded-[4px] bg-slate-100 text-slate-600 text-xs font-medium">{status}</span>;
+                return <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">{status}</span>;
         }
     }
 
     return (
-        <div className="container mx-auto py-6 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Booking Stats Cards */}
+            <BookingStats bookings={bookings} />
+
             {/* Main Container matching Figma */}
-            <div className="bg-white rounded-[24px] shadow-[0px_4px_15px_0px_rgba(131,131,131,0.64)] p-6 md:p-8 min-h-[600px]">
+            <div className="bg-white rounded-[24px] shadow-[0px_4px_15px_0px_rgba(131,131,131,0.64)] p-6 md:p-8 ">
 
                 {/* Top Filters & Actions */}
                 <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
                     <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
                         <Select>
-                            <SelectTrigger className="md:w-[140px] w-[120px] md:h-[44px] h-[36px] rounded-[6px] border-[#BEBEBE] text-[#8E8787]">
+                            <SelectTrigger className="w-full md:w-[140px] h-[44px] rounded-[6px] border-[#BEBEBE] text-[#8E8787]">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -78,7 +82,7 @@ export default function MyBookingsPage() {
                         </Select>
 
                         <Select>
-                            <SelectTrigger className="md:w-[180px] w-[120px] md:h-[44px] h-[36px] rounded-[6px] border-[#BEBEBE] text-[#8E8787]">
+                            <SelectTrigger className="w-full md:w-[180px] h-[44px] rounded-[6px] border-[#BEBEBE] text-[#8E8787]">
                                 <SelectValue placeholder="Select Academy" />
                             </SelectTrigger>
                             <SelectContent>
@@ -88,7 +92,7 @@ export default function MyBookingsPage() {
                         </Select>
 
                         <Select>
-                            <SelectTrigger className="md:w-[220px] w-[180px] md:h-[44px] h-[36px] rounded-[6px] border-[#BEBEBE] text-[#8E8787]">
+                            <SelectTrigger className="w-full md:w-[220px] h-[44px] rounded-[6px] border-[#BEBEBE] text-[#8E8787]">
                                 <SelectValue placeholder="Select Conference & Hall" />
                             </SelectTrigger>
                             <SelectContent>
@@ -98,13 +102,13 @@ export default function MyBookingsPage() {
                         </Select>
                     </div>
 
-                    <Button variant="outline" className="h-[44px] px-6 rounded-[6px] border-[#BEBEBE] text-[#271E4A] hover:bg-slate-50">
+                    <Button variant="outline" className="w-full md:w-auto h-[44px] px-6 rounded-[6px] border-[#B4B4B4] text-[#271E4A] hover:bg-slate-50">
                         Export
                     </Button>
                 </div>
 
-                {/* Table */}
-                <div className="rounded-lg overflow-hidden border border-[#EAECF0]">
+                {/* Desktop Table View */}
+                <div className="hidden md:block rounded-lg overflow-hidden border border-[#EAECF0]">
                     <Table>
                         <TableHeader className="bg-[#F7F9FC]">
                             <TableRow className="border-b border-[#EAECF0] hover:bg-[#F7F9FC] text-nowrap">
@@ -151,6 +155,45 @@ export default function MyBookingsPage() {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-slate-600 text-sm">Recent Bookings</h3>
+                        <span className="text-xs text-slate-500">{paginatedBookings.length} of {filteredBookings.length}</span>
+                    </div>
+                    {loading ? (
+                        <div className="text-center py-8 text-slate-500">Loading bookings...</div>
+                    ) : paginatedBookings.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500">No bookings found.</div>
+                    ) : (
+                        paginatedBookings.map((booking) => (
+                            <div key={booking.id} onClick={() => handleViewDetails(booking.id)} className="bg-white border border-[#e5e7eb] rounded-[14px] p-4 shadow-sm active:scale-[0.98] transition-transform cursor-pointer">
+                                <div className="flex items-start justify-between mb-3">
+                                    <span className="font-medium text-[#6941C6] text-sm">#{booking.id.toUpperCase()}</span>
+                                    {getStatusBadge(booking.status)}
+                                </div>
+                                <h4 className="font-medium text-[#101828] text-base mb-4 line-clamp-2">
+                                    {booking.eventName || "Untitled Event"}
+                                </h4>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-[#4a5565]">
+                                        <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                            <MapPin className="h-3 w-3 text-slate-500" />
+                                        </div>
+                                        <span>{booking.hallId === "h1" ? "Lister Hall" : "Hall 2"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-[#4a5565]">
+                                        <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                            <Calendar className="h-3 w-3 text-slate-500" />
+                                        </div>
+                                        <span>{booking.date}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
 
                 {/* Pagination Controls */}

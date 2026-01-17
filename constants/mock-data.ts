@@ -89,7 +89,11 @@ export const MOCK_BOOKINGS: Booking[] = [
         matsRequestNo: "MATS-8821",
         itRequirements: "Projector, Sound System, 2 Microphones",
         sessions: [
-            { id: "s1", date: "2025-12-12", startTime: "09:00", endTime: "17:00", hallId: "h1", bookingType: "Conference" }
+            { id: "s1", date: "2025-12-12", startTime: "09:00", endTime: "17:00", hallId: "h1", bookingType: "Conference" },
+            { id: "s2", date: "2025-12-12", startTime: "09:00", endTime: "17:00", hallId: "h1", bookingType: "Conference" },
+            { id: "s3", date: "2025-12-12", startTime: "09:00", endTime: "17:00", hallId: "h1", bookingType: "Conference" },
+            { id: "s4", date: "2025-12-12", startTime: "09:00", endTime: "17:00", hallId: "h1", bookingType: "Conference" },
+            { id: "s5", date: "2025-12-12", startTime: "09:00", endTime: "17:00", hallId: "h1", bookingType: "Conference" },
         ]
     },
     {
@@ -151,6 +155,91 @@ export const MOCK_BOOKINGS: Booking[] = [
     },
     {
         id: "2025-005",
+        academyId: "ac1",
+        hallId: "h1",
+        date: "2025-12-28",
+        timeSlot: "10:00 AM - 06:00 PM",
+        status: "approved",
+        organizer: "Priya Sharma",
+        fullName: "Priya Sharma",
+        department: "Research",
+        eventName: "Research Symposium",
+        contactNumber: "+91 88776 65544",
+        trainingTitle: "Q4 Research Findings Presentation",
+        description: "Presentation of Q4 research findings and planning for Q1 2026.",
+        participantsCount: 60,
+        email: "priya.sharma@academy.com",
+        matsEvent: "No",
+        sessions: [
+            { id: "s5", date: "2025-12-28", startTime: "10:00", endTime: "18:00", hallId: "h1", bookingType: "Symposium" }
+        ]
+    },
+
+    {
+        id: "2025-006",
+        academyId: "ac1",
+        hallId: "h1",
+        date: "2025-12-28",
+        timeSlot: "10:00 AM - 06:00 PM",
+        status: "approved",
+        organizer: "Priya Sharma",
+        fullName: "Priya Sharma",
+        department: "Research",
+        eventName: "Research Symposium",
+        contactNumber: "+91 88776 65544",
+        trainingTitle: "Q4 Research Findings Presentation",
+        description: "Presentation of Q4 research findings and planning for Q1 2026.",
+        participantsCount: 60,
+        email: "priya.sharma@academy.com",
+        matsEvent: "No",
+        sessions: [
+            { id: "s5", date: "2025-12-28", startTime: "10:00", endTime: "18:00", hallId: "h1", bookingType: "Symposium" }
+        ]
+    },
+    {
+        id: "2025-007",
+        academyId: "ac1",
+        hallId: "h1",
+        date: "2025-12-28",
+        timeSlot: "10:00 AM - 06:00 PM",
+        status: "approved",
+        organizer: "Priya Sharma",
+        fullName: "Priya Sharma",
+        department: "Research",
+        eventName: "Research Symposium",
+        contactNumber: "+91 88776 65544",
+        trainingTitle: "Q4 Research Findings Presentation",
+        description: "Presentation of Q4 research findings and planning for Q1 2026.",
+        participantsCount: 60,
+        email: "priya.sharma@academy.com",
+        matsEvent: "No",
+        sessions: [
+            { id: "s5", date: "2025-12-28", startTime: "10:00", endTime: "18:00", hallId: "h1", bookingType: "Symposium" }
+        ]
+    },
+    {
+        id: "2025-008",
+        academyId: "ac1",
+        hallId: "h1",
+        date: "2025-12-28",
+        timeSlot: "10:00 AM - 06:00 PM",
+        status: "approved",
+        organizer: "Priya Sharma",
+        fullName: "Priya Sharma",
+        department: "Research",
+        eventName: "Research Symposium",
+        contactNumber: "+91 88776 65544",
+        trainingTitle: "Q4 Research Findings Presentation",
+        description: "Presentation of Q4 research findings and planning for Q1 2026.",
+        participantsCount: 60,
+        email: "priya.sharma@academy.com",
+        matsEvent: "No",
+        sessions: [
+            { id: "s5", date: "2025-12-28", startTime: "10:00", endTime: "18:00", hallId: "h1", bookingType: "Symposium" }
+        ]
+    },
+    {
+        id: "2025-009",
         academyId: "ac1",
         hallId: "h1",
         date: "2025-12-28",

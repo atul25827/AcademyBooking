@@ -18,7 +18,11 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
-export default function CalendarView() {
+interface CalendarViewProps {
+    onEventClick?: (bookingId: string) => void;
+}
+
+export default function CalendarView({ onEventClick }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [bookings, setBookings] = useState<Booking[]>([]);
 
@@ -163,7 +167,7 @@ export default function CalendarView() {
                 {/* Date Navigation Section */}
                 <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto justify-end text-[#8E8787]">
                     <Select value={format(currentDate, "MMMM")} onValueChange={handleMonthChange}>
-                        <SelectTrigger className="w-full md:w-[160px] h-10 rounded-[6px] border-[#B4B4B4] text-[#8E8787] font-normal focus:ring-[#0050fd] focus:ring-offset-0">
+                        <SelectTrigger className="w-full md:w-[160px] h-10 rounded-[6px] border-[#B4B4B4] text-[#8E8787] font-normal focus:ring-offset-0">
                             <SelectValue placeholder="Select Month" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[300px] border-[#B4B4B4]">
@@ -176,7 +180,7 @@ export default function CalendarView() {
                     </Select>
 
                     <Select value={getYear(currentDate).toString()} onValueChange={handleYearChange}>
-                        <SelectTrigger className="w-full md:w-[120px] h-10 rounded-[6px] border-[#B4B4B4] text-[#8E8787] font-normal  focus:ring-[#0050fd] focus:ring-offset-0">
+                        <SelectTrigger className="w-full md:w-[120px] h-10 rounded-[6px] border-[#B4B4B4] text-[#8E8787] font-normal focus:ring-offset-0">
                             <SelectValue placeholder="Select Year" />
                         </SelectTrigger>
                         <SelectContent className="border-[#B4B4B4]">
@@ -252,6 +256,7 @@ export default function CalendarView() {
                                         {dayEvents.map((event) => (
                                             <div
                                                 key={event.id}
+                                                onClick={() => onEventClick?.(event.id)}
                                                 onMouseEnter={(e) => handleEventMouseEnter(event, e)}
                                                 onMouseLeave={handleEventMouseLeave}
                                                 className="px-1.5 md:px-2 py-1 md:py-1.5 rounded-[6px] bg-[#0050fd]/10 border-l-[3px] border-[#0050fd] hover:bg-[#0050fd] hover:border-[#0050fd] group/event transition-all cursor-pointer relative"

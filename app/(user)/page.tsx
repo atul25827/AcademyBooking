@@ -63,11 +63,11 @@ export default function Home() {
                         <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md pt-2">
                             {isAuthenticated ? (
                                 <Link href="/book">
-                                    <Button size="lg" className="w-full sm:w-auto h-12 rounded-[12px] bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white px-8 font-medium">Book Your Place</Button>
+                                    <Button size="lg" className="w-full sm:w-auto h-12 rounded-[12px] bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white px-8 font-medium cursor-pointer">Book Your Place</Button>
                                 </Link>
                             ) : (
                                 <Link href="/book">
-                                    <Button size="lg" className="w-full sm:w-auto h-12 rounded-full bg-[#1D2939] hover:bg-slate-800 text-white px-8 font-medium">Explore</Button>
+                                    <Button size="lg" className="w-full sm:w-auto h-12 rounded-[12px] bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white px-8 font-medium cursor-pointer">Book Your Place</Button>
                                 </Link>
                             )}
                         </div>

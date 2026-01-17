@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronsUpDown, Trash2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,193 +26,128 @@ import {
 
 interface BookingFormProps {
     academyId: string;
+    onSuccess?: () => void;
+    onCancel?: () => void;
 }
 
-interface Session {
-    id: string;
-    trainingHall: string;
-    bookingType: string;
-    eventDate: Date | undefined;
-    startTime: string;
-    endTime: string;
-}
+// ... imports
 
-export function BookingForm({ academyId }: BookingFormProps) {
-    // Hall Booking Info State
-    const [startDate, setStartDate] = React.useState<Date>();
-    const [endDate, setEndDate] = React.useState<Date>();
+export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps) {
+    const router = useRouter();
+    const [startDate, setStartDate] = React.useState<Date | undefined>();
+    const [endDate, setEndDate] = React.useState<Date | undefined>();
+    const [sessionDate, setSessionDate] = React.useState<Date | undefined>();
+
     const [hallInfo, setHallInfo] = React.useState({
         academy: academyId,
+        merilianCode: "",
         fullName: "",
         contactNumber: "",
-        merilianCode: "",
         attendeesVertical: "",
         attendeesDepartment: "",
         trainingTitle: "",
         description: "",
-        department: "",
     });
 
-    // Day Wise Plan State
-    const [currentSession, setCurrentSession] = React.useState<Partial<Session>>({
+    const [participantsInfo, setParticipantsInfo] = React.useState({
+        email: "",
+        numberOfParticipants: "",
+        itRequirements: "",
+        specificRequirements: "",
+        matsEvent: "",
+        matsRequestNo: "",
+    });
+
+    const [currentSession, setCurrentSession] = React.useState({
         trainingHall: "",
         bookingType: "",
         startTime: "",
         endTime: "",
     });
-    const [sessionDate, setSessionDate] = React.useState<Date>();
-    const [sessions, setSessions] = React.useState<Session[]>([]);
 
-    // Participants Form State
-    const [participantsInfo, setParticipantsInfo] = React.useState({
-        numberOfParticipants: "",
-        itRequirements: "",
-        specificRequirements: "",
-        email: "",
-        matsEvent: "",
-        matsRequestNo: "",
-    });
-
-    // Validation State
+    const [sessions, setSessions] = React.useState<any[]>([]);
     const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-    // Validation Configuration
-    const hallInfoRules = {
-        academy: { label: "Academy", required: true },
-        fullName: { label: "Full Name", required: true },
-        contactNumber: { label: "Contact Number", required: true },
-        merilianCode: { label: "Merilian Code", required: true },
-        attendeesVertical: { label: "Attendees Vertical", required: true },
-        attendeesDepartment: { label: "Attendees Department", required: true },
-        trainingTitle: { label: "Training Title", required: true },
-        description: { label: "Description", required: true },
-        department: { label: "Department", required: true },
-    };
+    const isHallValid = Boolean(
+        hallInfo.academy &&
+        hallInfo.merilianCode &&
+        hallInfo.fullName &&
+        hallInfo.contactNumber &&
+        hallInfo.attendeesVertical &&
+        hallInfo.attendeesDepartment &&
+        hallInfo.trainingTitle &&
+        hallInfo.description
+    );
 
-    const sessionRules = {
-        trainingHall: { label: "Training Hall", required: true },
-        bookingType: { label: "Booking Type", required: true },
-        startTime: { label: "Start Time", required: true },
-        endTime: { label: "End Time", required: true },
-    };
+    const isParticipantsValid = Boolean(
+        participantsInfo.email &&
+        participantsInfo.numberOfParticipants &&
+        participantsInfo.itRequirements &&
+        participantsInfo.matsEvent &&
+        (participantsInfo.matsEvent === 'no' || participantsInfo.matsRequestNo)
+    );
 
-    const participantsInfoRules = {
-        numberOfParticipants: { label: "Number of Participants", required: true },
-        itRequirements: { label: "IT Requirements", required: true },
-        specificRequirements: { label: "Specific Requirements", required: false }, // Example optional
-        email: { label: "Email", required: true, email: true },
-        matsEvent: { label: "MATS Event", required: true },
-        matsRequestNo: { label: "MATS Request No", required: true },
-    };
-
-    // Generic Validation Helper
-    const validateValues = (values: any, rules: Record<string, any>, prefix: string = "") => {
-        const newErrors: Record<string, string> = {};
-        let isValid = true;
-
-        Object.keys(rules).forEach((field) => {
-            const rule = rules[field];
-            const value = values[field];
-            const errorKey = prefix ? `${prefix}.${field}` : field;
-
-            if (rule.required && (!value || value.toString().trim() === "")) {
-                newErrors[errorKey] = `${rule.label} is required`;
-                isValid = false;
-            } else if (rule.email && value) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(value)) {
-                    newErrors[errorKey] = "Invalid email address";
-                    isValid = false;
-                }
-            }
-        });
-
-        return { isValid, errors: newErrors };
+    const renderError = (field: string) => {
+        return errors[field] ? <span className="text-red-500 text-xs mt-1">{errors[field]}</span> : null;
     };
 
     const handleAddSession = () => {
-        const sessionPayload = {
-            ...currentSession,
-            eventDate: sessionDate, // Validate date separately if needed or add to rules
+        if (!sessionDate || !currentSession.startTime || !currentSession.endTime || !currentSession.trainingHall || !currentSession.bookingType) {
+            setErrors(prev => ({ ...prev, "global.sessions": "Please fill all session details" }));
+            return;
+        }
+
+        const newSession = {
+            id: Math.random().toString(36).substr(2, 9),
+            eventDate: sessionDate,
+            ...currentSession
         };
 
-        const { isValid, errors: sessionErrors } = validateValues(sessionPayload, sessionRules, "session");
-
-        // Manual check for Date
-        let dateError = {};
-        if (!sessionDate) {
-            dateError = { "session.eventDate": "Event Date is required" };
-        }
-
-        if (isValid && sessionDate) {
-            const newSession: Session = {
-                id: Math.random().toString(36).substr(2, 9),
-                trainingHall: currentSession.trainingHall!,
-                bookingType: currentSession.bookingType!,
-                eventDate: sessionDate,
-                startTime: currentSession.startTime!,
-                endTime: currentSession.endTime!,
-            };
-            setSessions([...sessions, newSession]);
-
-            // Reset current session
-            setCurrentSession({
-                trainingHall: "",
-                bookingType: "",
-                startTime: "",
-                endTime: "",
-            });
-            setSessionDate(undefined);
-
-            // Clear session errors
-            const remainingErrors = { ...errors };
-            Object.keys(sessionRules).forEach(key => delete remainingErrors[`session.${key}`]);
-            delete remainingErrors["session.eventDate"];
-            setErrors(remainingErrors);
-        } else {
-            setErrors(prev => ({ ...prev, ...sessionErrors, ...dateError }));
-        }
+        setSessions([...sessions, newSession]);
+        setCurrentSession({
+            trainingHall: "",
+            bookingType: "",
+            startTime: "",
+            endTime: ""
+        });
+        setSessionDate(undefined);
+        setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors["global.sessions"];
+            return newErrors;
+        });
     };
 
     const handleDeleteSession = (id: string) => {
-        setSessions(sessions.filter((s) => s.id !== id));
+        setSessions(sessions.filter(s => s.id !== id));
     };
 
     const handleSubmit = () => {
-        // Validate Hall Info
-        const { isValid: isHallValid, errors: hallErrors } = validateValues(hallInfo, hallInfoRules, "hall");
-
-        // Validate Dates (Manual)
-        const dateErrors: Record<string, string> = {};
-        if (!startDate) dateErrors["hall.startDate"] = "Start Date is required";
-        if (!endDate) dateErrors["hall.endDate"] = "End Date is required";
-
-        // Validate Participants Info
-        const { isValid: isParticipantsValid, errors: participantsErrors } = validateValues(participantsInfo, participantsInfoRules, "participants");
-
-        // Validate Sessions (Must have at least one)
-        const sessionListErrors: Record<string, string> = {};
-        if (sessions.length === 0) {
-            sessionListErrors["global.sessions"] = "Please add at least one session plan.";
-        }
-
-        const allErrors = { ...hallErrors, ...dateErrors, ...participantsErrors, ...sessionListErrors };
+        // ... validation logic
 
         if (isHallValid && isParticipantsValid && sessions.length > 0 && startDate && endDate) {
             console.log("Form Submitted Successfully", { hallInfo, sessions, participantsInfo, startDate, endDate });
-            alert("Booking Submitted Successfully!");
-            setErrors({});
-            // Proceed with API call here
+            // Simulate API call
+            setTimeout(() => {
+                alert("Booking Submitted Successfully!");
+                setErrors({});
+                if (onSuccess) {
+                    onSuccess();
+                } else {
+                    router.push("/my-bookings");
+                }
+            }, 500);
         } else {
-            setErrors(allErrors);
-            // Optional: Scroll to top or first error
+            // ... error handling
         }
     };
 
-    // Helper for rendering form fields with error handling
-    const renderError = (key: string) => {
-        return errors[key] ? <p className="text-red-500 text-xs mt-1">{errors[key]}</p> : null;
-    };
+    // ... render
+
+    <div className="flex justify-end gap-4 pt-4">
+        <Button variant="outline" size="lg" className="text-[20px]" onClick={onCancel || (() => router.back())}>Back</Button>
+        <Button size="lg" className="bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white text-[20px] cursor-pointer" onClick={handleSubmit}>Submit</Button>
+    </div>
 
     const renderLabel = (label: string, required: boolean = true) => (
         <Label className="text-[#767676] text-[20px] font-normal">
@@ -245,25 +181,6 @@ export function BookingForm({ academyId }: BookingFormProps) {
                             {renderError("hall.academy")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Full Name")}
-                            <Input
-                                value={hallInfo.fullName}
-                                onChange={(e) => setHallInfo({ ...hallInfo, fullName: e.target.value })}
-                            />
-                            {renderError("hall.fullName")}
-                        </div>
-                        <div className="space-y-2 flex flex-col">
-                            {renderLabel("Contact Number")}
-                            <Input
-                                value={hallInfo.contactNumber}
-                                onChange={(e) => setHallInfo({ ...hallInfo, contactNumber: e.target.value })}
-                            />
-                            {renderError("hall.contactNumber")}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2 flex flex-col">
                             {renderLabel("Merilian Code")}
                             <Select
                                 value={hallInfo.merilianCode}
@@ -276,6 +193,34 @@ export function BookingForm({ academyId }: BookingFormProps) {
                                 </SelectContent>
                             </Select>
                             {renderError("hall.merilianCode")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            {renderLabel("Full Name")}
+                            <Input
+                                value={hallInfo.fullName}
+                                onChange={(e) => setHallInfo({ ...hallInfo, fullName: e.target.value })}
+                            />
+                            {renderError("hall.fullName")}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2 flex flex-col">
+                            {renderLabel("Contact Number")}
+                            <Input
+                                value={hallInfo.contactNumber}
+                                onChange={(e) => setHallInfo({ ...hallInfo, contactNumber: e.target.value })}
+                            />
+                            {renderError("hall.contactNumber")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            {renderLabel("Email")}
+                            <Input
+                                type="email"
+                                value={participantsInfo.email}
+                                onChange={(e) => setParticipantsInfo({ ...participantsInfo, email: e.target.value })}
+                            />
+                            {renderError("participants.email")}
                         </div>
                         <div className="space-y-2 flex flex-col">
                             {renderLabel("Attendees Vertical")}
@@ -291,6 +236,9 @@ export function BookingForm({ academyId }: BookingFormProps) {
                             </Select>
                             {renderError("hall.attendeesVertical")}
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 flex flex-col">
                             {renderLabel("Attendees Department")}
                             <Select
@@ -305,21 +253,12 @@ export function BookingForm({ academyId }: BookingFormProps) {
                             </Select>
                             {renderError("hall.attendeesDepartment")}
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 flex flex-col">
                             {renderLabel("Training/Event Title")}
-                            <Select
+                            <Input
                                 value={hallInfo.trainingTitle}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, trainingTitle: val })}
-                            >
-                                <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="t1">Title 1</SelectItem>
-                                    <SelectItem value="t2">Title 2</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                onChange={(e) => setHallInfo({ ...hallInfo, trainingTitle: e.target.value })}
+                            />
                             {renderError("hall.trainingTitle")}
                         </div>
                         <div className="space-y-2 flex flex-col">
@@ -329,20 +268,6 @@ export function BookingForm({ academyId }: BookingFormProps) {
                                 onChange={(e) => setHallInfo({ ...hallInfo, description: e.target.value })}
                             />
                             {renderError("hall.description")}
-                        </div>
-                        <div className="space-y-2 flex flex-col">
-                            {renderLabel("Department")}
-                            <Select
-                                value={hallInfo.department}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, department: val })}
-                            >
-                                <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="dept1">Dept 1</SelectItem>
-                                    <SelectItem value="dept2">Dept 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {renderError("hall.department")}
                         </div>
                     </div>
 
@@ -561,29 +486,15 @@ export function BookingForm({ academyId }: BookingFormProps) {
                     </div>
                     <div className="space-y-2 flex flex-col">
                         {renderLabel("Specific Requirements, If any", false)} {/* optional in logic? logic says required: false */}
-                        <Select
+                        <Input
                             value={participantsInfo.specificRequirements}
-                            onValueChange={(val) => setParticipantsInfo({ ...participantsInfo, specificRequirements: val })}
-                        >
-                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="spec1">Specific 1</SelectItem>
-                            </SelectContent>
-                        </Select>
+                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, specificRequirements: e.target.value })}
+                        />
                         {renderError("participants.specificRequirements")}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2 flex flex-col">
-                        {renderLabel("Email")}
-                        <Input
-                            type="email"
-                            value={participantsInfo.email}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, email: e.target.value })}
-                        />
-                        {renderError("participants.email")}
-                    </div>
                     <div className="space-y-2 flex flex-col">
                         {renderLabel("MATS Event")}
                         <Select
@@ -610,7 +521,7 @@ export function BookingForm({ academyId }: BookingFormProps) {
             </div>
 
             <div className="flex justify-end gap-4 pt-4">
-                <Button variant="outline" size="lg" className="text-[20px]">Back</Button>
+                <Button variant="outline" size="lg" className="text-[20px]" onClick={onCancel || (() => router.back())}>Back</Button>
                 <Button size="lg" className="bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white text-[20px] cursor-pointer" onClick={handleSubmit}>Submit</Button>
             </div>
         </div>

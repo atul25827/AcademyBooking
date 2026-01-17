@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 export function Footer() {
     return (
         <footer className="w-full bg-slate-50 border-t border-slate-200 mt-auto">
-            <div className="container mx-auto px-4 md:px-8 max-w-7xl py-12 lg:py-16">
+            <div className="container mx-auto px-4 md:px-8 max-w-7xl py-4 md:py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8">
 
                     {/* Brand Column */}
