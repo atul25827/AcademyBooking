@@ -11,24 +11,8 @@ import { UpcomingEvents } from "@/components/home/upcoming-events";
 import { VideoSection } from "@/components/home/video-section";
 import { AcademyLocations } from "@/components/home/academy-locations";
 
-// Dynamic import for client-side list
-const AcademyList = dynamic(() => import("@/components/academy/academy-list"), {
-    ssr: false,
-    loading: () => <AcademyListSkeleton />,
-});
-
-function AcademyListSkeleton() {
-    return (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-[300px] rounded-2xl bg-muted/20 animate-pulse ring-1 ring-border/5" />
-            ))}
-        </div>
-    )
-}
-
 export default function Home() {
-    const { user, isAuthenticated } = useAuth();
+    const { isAuthenticated } = useAuth();
 
     return (
         <div

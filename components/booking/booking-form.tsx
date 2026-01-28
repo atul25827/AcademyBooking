@@ -5,6 +5,10 @@ import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronsUpDown, Trash2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MasterData, Academy } from "@/types";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,32 +29,37 @@ import {
 } from "@/components/ui/select";
 
 interface BookingFormProps {
-    academyId: string;
+    academyId?: string;
+    masterData: MasterData | null;
+    academies: Academy[];
     onSuccess?: () => void;
     onCancel?: () => void;
 }
 
-// ... imports
+const FormLabel = ({ label, required = true }: { label: string; required?: boolean }) => (
+    <Label className="text-[#767676] text-[20px] font-normal">
+        {label} {required && <span className="text-red-500">*</span>}
+    </Label>
+);
 
-export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps) {
+export function BookingForm({ academyId, masterData, academies, onSuccess, onCancel }: BookingFormProps) {
     const router = useRouter();
-    const [startDate, setStartDate] = React.useState<Date | undefined>();
-    const [endDate, setEndDate] = React.useState<Date | undefined>();
-    const [sessionDate, setSessionDate] = React.useState<Date | undefined>();
 
-    const [hallInfo, setHallInfo] = React.useState({
-        academy: academyId,
+    const { user } = useAuth();
+
+    // Consolidated form state for better management and fewer re-renders
+    const [formData, setFormData] = React.useState({
+        startDate: undefined as Date | undefined,
+        endDate: undefined as Date | undefined,
+        academy: academyId || "",
         merilianCode: "",
         fullName: "",
         contactNumber: "",
+        email: "",
         attendeesVertical: "",
         attendeesDepartment: "",
         trainingTitle: "",
         description: "",
-    });
-
-    const [participantsInfo, setParticipantsInfo] = React.useState({
-        email: "",
         numberOfParticipants: "",
         itRequirements: "",
         specificRequirements: "",
@@ -58,59 +67,87 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
         matsRequestNo: "",
     });
 
-    const [currentSession, setCurrentSession] = React.useState({
-        trainingHall: "",
-        bookingType: "",
-        startTime: "",
-        endTime: "",
+    React.useEffect(() => {
+        if (user) {
+            setFormData(prev => ({
+                ...prev,
+                merilianCode: user.employeeCode || "",
+                fullName: user.name || "",
+                email: user.email || prev.email // Also mapping email as it's common
+            }));
+        }
+    }, [user]);
+
+    // Consolidated session state
+    const [sessionState, setSessionState] = React.useState({
+        list: [] as any[],
+        draft: {
+            trainingHall: [] as string[],
+            bookingType: "",
+            startTime: "",
+            endTime: "",
+            eventDate: undefined as Date | undefined,
+        }
     });
 
-    const [sessions, setSessions] = React.useState<any[]>([]);
     const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-    const isHallValid = Boolean(
-        hallInfo.academy &&
-        hallInfo.merilianCode &&
-        hallInfo.fullName &&
-        hallInfo.contactNumber &&
-        hallInfo.attendeesVertical &&
-        hallInfo.attendeesDepartment &&
-        hallInfo.trainingTitle &&
-        hallInfo.description
-    );
+    // Memoized derived state
+    const availableHalls = React.useMemo(() => {
+        const selectedAc = academies.find(a => a.id === formData.academy);
+        return selectedAc?.halls || [];
+    }, [formData.academy, academies]);
 
-    const isParticipantsValid = Boolean(
-        participantsInfo.email &&
-        participantsInfo.numberOfParticipants &&
-        participantsInfo.itRequirements &&
-        participantsInfo.matsEvent &&
-        (participantsInfo.matsEvent === 'no' || participantsInfo.matsRequestNo)
-    );
+    const updateField = (field: keyof typeof formData, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            });
+        }
+    };
 
-    const renderError = (field: string) => {
-        return errors[field] ? <span className="text-red-500 text-xs mt-1">{errors[field]}</span> : null;
+    const updateSessionDraft = (field: keyof typeof sessionState.draft, value: any) => {
+        setSessionState(prev => ({
+            ...prev,
+            draft: { ...prev.draft, [field]: value }
+        }));
+        if (errors[`session.${field}`]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[`session.${field}`];
+                return newErrors;
+            });
+        }
     };
 
     const handleAddSession = () => {
-        if (!sessionDate || !currentSession.startTime || !currentSession.endTime || !currentSession.trainingHall || !currentSession.bookingType) {
+        const { draft, list } = sessionState;
+        if (!draft.eventDate || !draft.startTime || !draft.endTime || draft.trainingHall.length === 0 || !draft.bookingType) {
             setErrors(prev => ({ ...prev, "global.sessions": "Please fill all session details" }));
             return;
         }
 
-        const newSession = {
+        // Create a separate session for each selected hall to create multiple records
+        const newSessions = draft.trainingHall.map(hallId => ({
             id: Math.random().toString(36).substr(2, 9),
-            eventDate: sessionDate,
-            ...currentSession
-        };
+            ...draft,
+            trainingHall: hallId // Store as single ID per record
+        }));
 
-        setSessions([...sessions, newSession]);
-        setCurrentSession({
-            trainingHall: "",
-            bookingType: "",
-            startTime: "",
-            endTime: ""
+        setSessionState({
+            list: [...list, ...newSessions],
+            draft: {
+                trainingHall: [],
+                bookingType: "",
+                startTime: "",
+                endTime: "",
+                eventDate: undefined,
+            }
         });
-        setSessionDate(undefined);
+
         setErrors(prev => {
             const newErrors = { ...prev };
             delete newErrors["global.sessions"];
@@ -119,41 +156,91 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
     };
 
     const handleDeleteSession = (id: string) => {
-        setSessions(sessions.filter(s => s.id !== id));
+        setSessionState(prev => ({
+            ...prev,
+            list: prev.list.filter(s => s.id !== id)
+        }));
     };
 
-    const handleSubmit = () => {
-        // ... validation logic
+    const handleSubmit = async () => {
+        const newErrors: Record<string, string> = {};
 
-        if (isHallValid && isParticipantsValid && sessions.length > 0 && startDate && endDate) {
-            console.log("Form Submitted Successfully", { hallInfo, sessions, participantsInfo, startDate, endDate });
-            // Simulate API call
-            setTimeout(() => {
-                alert("Booking Submitted Successfully!");
-                setErrors({});
-                if (onSuccess) {
-                    onSuccess();
-                } else {
-                    router.push("/my-bookings");
-                }
-            }, 500);
-        } else {
-            // ... error handling
+        // Validation
+        const requiredFields: (keyof typeof formData)[] = [
+            "academy", "merilianCode", "fullName", "contactNumber",
+            "email", "attendeesDepartment",
+            "trainingTitle", "description", "numberOfParticipants",
+            "itRequirements", "matsEvent"
+        ];
+
+        requiredFields.forEach(field => {
+            if (!formData[field]) newErrors[field] = "Required";
+        });
+
+        if (formData.matsEvent === 'yes' && !formData.matsRequestNo) {
+            newErrors["matsRequestNo"] = "Required";
+        }
+        if (!formData.startDate) newErrors["startDate"] = "Required";
+        if (!formData.endDate) newErrors["endDate"] = "Required";
+
+        if (sessionState.list.length === 0) {
+            newErrors["global.sessions"] = "Add at least one session";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            toast.error("Please fill all required fields");
+            return;
+        }
+
+        // Structure data for submission
+        const payload = {
+            academy: formData.academy,
+            department: formData.attendeesDepartment,
+            vertical: formData.attendeesVertical,
+            event_title: formData.trainingTitle,
+            description: formData.description,
+            event_start_date: formData.startDate ? format(formData.startDate, "yyyy-MM-dd") : "",
+            event_end_date: formData.endDate ? format(formData.endDate, "yyyy-MM-dd") : "",
+            no_of_participants: Number(formData.numberOfParticipants),
+            it_requirement: formData.itRequirements,
+            merilian_code: formData.merilianCode,
+            full_name: formData.fullName,
+            email: formData.email,
+            contact_number: formData.contactNumber,
+            mats_request_number: formData.matsRequestNo,
+            specific_requirement_if_any: formData.specificRequirements,
+            mats_event: formData.matsEvent === "yes" ? "Yes" : "No",
+            event_planning: sessionState.list.map(session => ({
+                hall: Array.isArray(session.trainingHall) ? session.trainingHall.join(",") : session.trainingHall,
+                booking_type: session.bookingType,
+                event_date: session.eventDate ? format(session.eventDate, "yyyy-MM-dd") : "",
+                event_start_time: session.startTime.length === 5 ? `${session.startTime}:00` : session.startTime,
+                event_end_time: session.endTime.length === 5 ? `${session.endTime}:00` : session.endTime
+            }))
+        };
+
+        try {
+            toast.loading("Submitting booking...");
+            await api.createBooking(payload);
+            toast.dismiss();
+            toast.success("Booking Submitted Successfully!");
+            setErrors({});
+            if (onSuccess) {
+                onSuccess();
+            } else {
+                router.push("/my-bookings");
+            }
+        } catch (error: any) {
+            toast.dismiss();
+            console.error("Booking submission error", error);
+            toast.error(error.message || "Failed to submit booking");
         }
     };
 
-    // ... render
-
-    <div className="flex justify-end gap-4 pt-4">
-        <Button variant="outline" size="lg" className="text-[20px]" onClick={onCancel || (() => router.back())}>Back</Button>
-        <Button size="lg" className="bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white text-[20px] cursor-pointer" onClick={handleSubmit}>Submit</Button>
-    </div>
-
-    const renderLabel = (label: string, required: boolean = true) => (
-        <Label className="text-[#767676] text-[20px] font-normal">
-            {label} {required && <span className="text-red-500">*</span>}
-        </Label>
-    );
+    const renderError = (field: string) => {
+        return errors[field] ? <span className="text-red-500 text-xs mt-1">{errors[field]}</span> : null;
+    };
 
     return (
         <div className="space-y-8">
@@ -165,164 +252,169 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
                 <CardContent className="px-0 grid gap-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Academy")}
+                            <FormLabel label="Academy" />
                             <Select
-                                value={hallInfo.academy}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, academy: val })}
+                                value={formData.academy || ""}
+                                onValueChange={(val) => updateField("academy", val)}
                             >
                                 <SelectTrigger className="">
                                     <SelectValue className="" placeholder="Select" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={academyId}>Current Academy</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
+                                    {academies.map((ac) => (
+                                        <SelectItem key={ac.id} value={ac.id}>{ac.name}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
-                            {renderError("hall.academy")}
+                            {renderError("academy")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Merilian Code")}
-                            <Select
-                                value={hallInfo.merilianCode}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, merilianCode: val })}
-                            >
-                                <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="code1">Code 1</SelectItem>
-                                    <SelectItem value="code2">Code 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {renderError("hall.merilianCode")}
-                        </div>
-                        <div className="space-y-2 flex flex-col">
-                            {renderLabel("Full Name")}
+                            <FormLabel label="Merilian Code" />
                             <Input
-                                value={hallInfo.fullName}
-                                onChange={(e) => setHallInfo({ ...hallInfo, fullName: e.target.value })}
+                                value={formData.merilianCode}
+                                readOnly
+                                disabled
+                                className="bg-muted text-muted-foreground"
                             />
-                            {renderError("hall.fullName")}
+                            {renderError("merilianCode")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Full Name" />
+                            <Input
+                                value={formData.fullName}
+                                readOnly
+                                disabled
+                                className="bg-muted text-muted-foreground"
+                            />
+                            {renderError("fullName")}
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Contact Number")}
+                            <FormLabel label="Contact Number" />
                             <Input
-                                value={hallInfo.contactNumber}
-                                onChange={(e) => setHallInfo({ ...hallInfo, contactNumber: e.target.value })}
+                                value={formData.contactNumber}
+                                onChange={(e) => updateField("contactNumber", e.target.value)}
                             />
-                            {renderError("hall.contactNumber")}
+                            {renderError("contactNumber")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Email")}
+                            <FormLabel label="Email" />
                             <Input
                                 type="email"
-                                value={participantsInfo.email}
-                                onChange={(e) => setParticipantsInfo({ ...participantsInfo, email: e.target.value })}
+                                value={formData.email}
+                                onChange={(e) => updateField("email", e.target.value)}
                             />
-                            {renderError("participants.email")}
+                            {renderError("email")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Attendees Vertical")}
+                            <FormLabel label="Attendees Vertical" />
                             <Select
-                                value={hallInfo.attendeesVertical}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, attendeesVertical: val })}
+                                value={formData.attendeesVertical}
+                                onValueChange={(val) => updateField("attendeesVertical", val)}
                             >
                                 <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="v1">Vertical 1</SelectItem>
-                                    <SelectItem value="v2">Vertical 2</SelectItem>
+                                    {masterData?.master_company.map((comp) => (
+                                        <SelectItem key={comp.company_code} value={comp.company_code}>
+                                            {comp.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
-                            {renderError("hall.attendeesVertical")}
+                            {renderError("attendeesVertical")}
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Attendees Department")}
+                            <FormLabel label="Attendees Department" />
                             <Select
-                                value={hallInfo.attendeesDepartment}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, attendeesDepartment: val })}
+                                value={formData.attendeesDepartment}
+                                onValueChange={(val) => updateField("attendeesDepartment", val)}
                             >
                                 <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="d1">Dept 1</SelectItem>
-                                    <SelectItem value="d2">Dept 2</SelectItem>
+                                    {masterData?.department_master.map((dept) => (
+                                        <SelectItem key={dept.name} value={dept.name}>
+                                            {dept.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
-                            {renderError("hall.attendeesDepartment")}
+                            {renderError("attendeesDepartment")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Training/Event Title")}
+                            <FormLabel label="Training/Event Title" />
                             <Input
-                                value={hallInfo.trainingTitle}
-                                onChange={(e) => setHallInfo({ ...hallInfo, trainingTitle: e.target.value })}
+                                value={formData.trainingTitle}
+                                onChange={(e) => updateField("trainingTitle", e.target.value)}
                             />
-                            {renderError("hall.trainingTitle")}
+                            {renderError("trainingTitle")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Brief Description/Purpose")}
+                            <FormLabel label="Brief Description/Purpose" />
                             <Input
-                                value={hallInfo.description}
-                                onChange={(e) => setHallInfo({ ...hallInfo, description: e.target.value })}
+                                value={formData.description}
+                                onChange={(e) => updateField("description", e.target.value)}
                             />
-                            {renderError("hall.description")}
+                            {renderError("description")}
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Event Start Date")}
+                            <FormLabel label="Event Start Date" />
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
                                         className={cn(
                                             "w-full pl-3 text-left font-normal bg-background rounded-[6px]",
-                                            !startDate && "text-muted-foreground"
+                                            !formData.startDate && "text-muted-foreground"
                                         )}
                                     >
-                                        {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                                        {formData.startDate ? format(formData.startDate, "PPP") : <span>Pick a date</span>}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0 bg-white border-[#BEBEBE]" align="start">
                                     <Calendar
                                         mode="single"
-                                        selected={startDate}
-                                        onSelect={setStartDate}
+                                        selected={formData.startDate}
+                                        onSelect={(date) => updateField("startDate", date)}
                                         initialFocus
                                     />
                                 </PopoverContent>
                             </Popover>
-                            {renderError("hall.startDate")}
+                            {renderError("startDate")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            {renderLabel("Event End Date")}
+                            <FormLabel label="Event End Date" />
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
                                         className={cn(
                                             "w-full pl-3 text-left font-normal bg-background rounded-[6px]",
-                                            !endDate && "text-muted-foreground"
+                                            !formData.endDate && "text-muted-foreground"
                                         )}
                                     >
-                                        {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                                        {formData.endDate ? format(formData.endDate, "PPP") : <span>Pick a date</span>}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0 bg-white border-[#BEBEBE]" align="start">
                                     <Calendar
                                         mode="single"
-                                        selected={endDate}
-                                        onSelect={setEndDate}
+                                        selected={formData.endDate}
+                                        onSelect={(date) => updateField("endDate", date)}
                                         initialFocus
                                     />
                                 </PopoverContent>
                             </Popover>
-                            {renderError("hall.endDate")}
+                            {renderError("endDate")}
                         </div>
                     </div>
                 </CardContent>
@@ -334,54 +426,124 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
                 {renderError("global.sessions")}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Training Hall")}
-                        <Select
-                            value={currentSession.trainingHall}
-                            onValueChange={(val) => setCurrentSession({ ...currentSession, trainingHall: val })}
-                        >
-                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="lister-hall">Lister Hall</SelectItem>
-                                <SelectItem value="hall-2">Hall 2</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <FormLabel label="Training Hall" />
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                        "w-full justify-between bg-background font-normal",
+                                        !sessionState.draft.trainingHall?.length && "text-muted-foreground"
+                                    )}
+                                >
+                                    {sessionState.draft.trainingHall && sessionState.draft.trainingHall.length > 0
+                                        ? (
+                                            <span className="truncate">
+                                                {sessionState.draft.trainingHall.map(id =>
+                                                    availableHalls.find(h => h.id === id)?.name || id
+                                                ).join(", ")}
+                                            </span>
+                                        )
+                                        : "Select Halls"
+                                    }
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0 bg-white" align="start">
+                                <div className="border-b px-3 py-2">
+                                    <p className="text-sm font-medium text-muted-foreground">Select Halls</p>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto p-1">
+                                    {availableHalls.length === 0 ? (
+                                        <div className="p-2 text-sm text-muted-foreground">No halls available</div>
+                                    ) : (
+                                        availableHalls.map((hall) => {
+                                            const isSelected = (sessionState.draft.trainingHall || []).includes(hall.id);
+                                            return (
+                                                <div
+                                                    key={hall.id}
+                                                    className={cn(
+                                                        "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                                                        isSelected ? "bg-accent/50" : ""
+                                                    )}
+                                                    onClick={() => {
+                                                        const current = sessionState.draft.trainingHall || [];
+                                                        const newValue = current.includes(hall.id)
+                                                            ? current.filter((id: string) => id !== hall.id)
+                                                            : [...current, hall.id];
+                                                        updateSessionDraft("trainingHall", newValue);
+                                                    }}
+                                                >
+                                                    <div className={cn(
+                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                    )}>
+                                                        <svg
+                                                            className={cn("h-4 w-4")}
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        >
+                                                            <polyline points="20 6 9 17 4 12" />
+                                                        </svg>
+                                                    </div>
+                                                    <span>{hall.name}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                         {renderError("session.trainingHall")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Booking Type")}
+                        <FormLabel label="Booking Type" />
                         <Select
-                            value={currentSession.bookingType}
-                            onValueChange={(val) => setCurrentSession({ ...currentSession, bookingType: val })}
+                            value={sessionState.draft.bookingType}
+                            onValueChange={(val) => updateSessionDraft("bookingType", val)}
                         >
                             <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="vapi-academy">Vapi Academy</SelectItem>
-                                <SelectItem value="online">Online</SelectItem>
+                                {masterData?.booking_type.map((bt) => (
+                                    <SelectItem key={bt.name} value={bt.name}>{bt.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         {renderError("session.bookingType")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Event Date")}
+                        <FormLabel label="Event Date" />
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
                                     className={cn(
                                         "w-full pl-3 text-left font-normal bg-background rounded-[6px]",
-                                        !sessionDate && "text-muted-foreground"
+                                        !sessionState.draft.eventDate && "text-muted-foreground"
                                     )}
                                 >
-                                    {sessionDate ? format(sessionDate, "PPP") : <span>Pick a date</span>}
+                                    {sessionState.draft.eventDate ? format(sessionState.draft.eventDate, "PPP") : <span>Pick a date</span>}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0 bg-white border-[#BEBEBE]" align="start">
                                 <Calendar
                                     mode="single"
-                                    selected={sessionDate}
-                                    onSelect={setSessionDate}
+                                    selected={sessionState.draft.eventDate}
+                                    onSelect={(date) => updateSessionDraft("eventDate", date)}
                                     initialFocus
+                                    disabled={(date) => {
+                                        // Optional: disable dates outside start/end range
+                                        if (formData.startDate && date < formData.startDate) return true;
+                                        if (formData.endDate && date > formData.endDate) return true;
+                                        return false;
+                                    }}
                                 />
                             </PopoverContent>
                         </Popover>
@@ -390,21 +552,20 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Event Start Time")}
-                        {/* Using text input for time for simplicity, ideally a TimePicker */}
+                        <FormLabel label="Event Start Time" />
                         <Input
                             type="time"
-                            value={currentSession.startTime}
-                            onChange={(e) => setCurrentSession({ ...currentSession, startTime: e.target.value })}
+                            value={sessionState.draft.startTime}
+                            onChange={(e) => updateSessionDraft("startTime", e.target.value)}
                         />
                         {renderError("session.startTime")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Event End Time")}
+                        <FormLabel label="Event End Time" />
                         <Input
                             type="time"
-                            value={currentSession.endTime}
-                            onChange={(e) => setCurrentSession({ ...currentSession, endTime: e.target.value })}
+                            value={sessionState.draft.endTime}
+                            onChange={(e) => updateSessionDraft("endTime", e.target.value)}
                         />
                         {renderError("session.endTime")}
                     </div>
@@ -415,7 +576,7 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
             </div>
 
             {/* Event Planning Table */}
-            {sessions.length > 0 && (
+            {sessionState.list.length > 0 && (
                 <div className="rounded-[24px] shadow-[0_4px_15px_0_rgba(216,210,252,0.64)]">
                     <div className="bg-muted/50 p-4">
                         <h4 className="text-[20px] font-normal text-[#271E4A] font-poppins py-1">Event Planning</h4>
@@ -432,9 +593,13 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
                                     </tr>
                                 </thead>
                                 <tbody className="[&_tr:last-child]:border-0">
-                                    {sessions.map((session) => (
+                                    {sessionState.list.map((session) => (
                                         <tr key={session.id} className="border-b border-[#BEBEBE] transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                            <td className="p-2 align-middle">{session.trainingHall}</td>
+                                            <td className="p-2 align-middle">
+                                                {(Array.isArray(session.trainingHall) ? session.trainingHall : [session.trainingHall]).map((hallId: string) =>
+                                                    academies.flatMap(a => a.halls || []).find(h => h.id === hallId)?.name || hallId
+                                                ).join(", ")}
+                                            </td>
                                             <td className="p-2 align-middle">{session.bookingType}</td>
                                             <td className="p-2 align-middle">{session.eventDate ? format(session.eventDate, "dd-MM-yyyy") : "-"}</td>
                                             <td className="p-2 align-middle">{session.startTime}</td>
@@ -463,43 +628,44 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
                 <h3 className="text-[20px] font-normal text-[#271E4A] font-poppins">Participants Form</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Number of Participants")}
+                        <FormLabel label="Number of Participants" />
                         <Input
-                            value={participantsInfo.numberOfParticipants}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, numberOfParticipants: e.target.value })}
+                            value={formData?.numberOfParticipants}
+                            onChange={(e) => updateField("numberOfParticipants", e.target.value)}
                         />
-                        {renderError("participants.numberOfParticipants")}
+                        {renderError("numberOfParticipants")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("IT Requirements")}
+                        <FormLabel label="IT Requirements" />
                         <Select
-                            value={participantsInfo.itRequirements}
-                            onValueChange={(val) => setParticipantsInfo({ ...participantsInfo, itRequirements: val })}
+                            value={formData.itRequirements}
+                            onValueChange={(val) => updateField("itRequirements", val)}
                         >
                             <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="req1">Requirement 1</SelectItem>
-                                <SelectItem value="req2">Requirement 2</SelectItem>
+                                {masterData?.it_requirements.map((it) => (
+                                    <SelectItem key={it.name} value={it.name}>{it.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
-                        {renderError("participants.itRequirements")}
+                        {renderError("itRequirements")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("Specific Requirements, If any", false)} {/* optional in logic? logic says required: false */}
+                        <FormLabel label="Specific Requirements, If any" required={false} />
                         <Input
-                            value={participantsInfo.specificRequirements}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, specificRequirements: e.target.value })}
+                            value={formData.specificRequirements}
+                            onChange={(e) => updateField("specificRequirements", e.target.value)}
                         />
-                        {renderError("participants.specificRequirements")}
+                        {renderError("specificRequirements")}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("MATS Event")}
+                        <FormLabel label="MATS Event" />
                         <Select
-                            value={participantsInfo.matsEvent}
-                            onValueChange={(val) => setParticipantsInfo({ ...participantsInfo, matsEvent: val })}
+                            value={formData.matsEvent}
+                            onValueChange={(val) => updateField("matsEvent", val)}
                         >
                             <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
@@ -507,15 +673,15 @@ export function BookingForm({ academyId, onSuccess, onCancel }: BookingFormProps
                                 <SelectItem value="no">No</SelectItem>
                             </SelectContent>
                         </Select>
-                        {renderError("participants.matsEvent")}
+                        {renderError("matsEvent")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        {renderLabel("MATS Request No")}
+                        <FormLabel label="MATS Request No" />
                         <Input
-                            value={participantsInfo.matsRequestNo}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, matsRequestNo: e.target.value })}
+                            value={formData.matsRequestNo}
+                            onChange={(e) => updateField("matsRequestNo", e.target.value)}
                         />
-                        {renderError("participants.matsRequestNo")}
+                        {renderError("matsRequestNo")}
                     </div>
                 </div>
             </div>

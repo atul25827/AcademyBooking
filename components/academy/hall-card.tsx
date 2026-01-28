@@ -46,24 +46,28 @@ export function HallCard({ hall, academyName }: HallCardProps) {
 
                 {/* Amenities / Stats Row (Mocked based on Figma design) */}
                 <div className="absolute bottom-6 left-6 flex gap-4">
-                    <div className="flex flex-col items-center gap-1">
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
-                            <Wifi className="w-4 h-4 text-[#7D3FD0]" />
+                    {hall.wifi > 0 && (
+                        <div className="flex flex-col items-center gap-1">
+                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                                <Wifi className="w-4 h-4 text-[#7D3FD0]" />
+                            </div>
+                            <span className="text-[10px] text-white font-medium">Wi-Fi</span>
                         </div>
-                        <span className="text-[10px] text-white font-medium">Wi-Fi</span>
-                    </div>
+                    )}
                     <div className="flex flex-col items-center gap-1">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
                             <Users className="w-4 h-4 text-[#7D3FD0]" />
                         </div>
-                        <span className="text-[10px] text-white font-medium">50-100</span>
+                        <span className="text-[10px] text-white font-medium">{hall.capacity}</span>
                     </div>
-                    <div className="flex flex-col items-center gap-1">
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
-                            <Monitor className="w-4 h-4 text-[#7D3FD0]" />
+                    {hall.screen > 0 && (
+                        <div className="flex flex-col items-center gap-1">
+                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                                <Monitor className="w-4 h-4 text-[#7D3FD0]" />
+                            </div>
+                            <span className="text-[10px] text-white font-medium">Screen</span>
                         </div>
-                        <span className="text-[10px] text-white font-medium">Yes</span>
-                    </div>
+                    )}
                 </div>
             </div>
 

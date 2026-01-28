@@ -20,7 +20,7 @@ export function AdminHeader({ title }: AdminHeaderProps) {
     const { user, logout } = useAuth();
 
     // Default to Admin User if no user in context (for dev/mock)
-    const displayUser = user || { name: "Aditya", role: "ADMIN" };
+    const displayUser = user || { name: "Aditya", role: "Academy Admin" };
 
     return (
         <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-40 w-full">

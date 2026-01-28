@@ -6,20 +6,13 @@ import Image from "next/image";
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-
+import { useAcademy } from "@/context/academy-context";
 // Mock Data for Academies
-import { Academy } from "@/types";
-import { api } from "@/lib/api";
-import { useEffect, useState } from "react";
 
 export function AcademyLocations() {
     const router = useRouter();
+    const { academies } = useAcademy();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const [academies, setAcademies] = useState<Academy[]>([]);
-
-    useEffect(() => {
-        api.listAcademies().then(setAcademies);
-    }, []);
 
     const handleCardClick = (id: number | string) => {
         router.push(`/book?academyId=${id}`);
@@ -39,7 +32,6 @@ export function AcademyLocations() {
             });
         }
     };
-
     return (
         <section className="py-8 md:py-12 relative overflow-hidden">
             <div className="container px-4 md:px-6 max-w-7xl mx-auto">
@@ -94,6 +86,7 @@ export function AcademyLocations() {
                                 src={academy.imageUrl}
                                 alt={academy.name}
                                 fill
+                                unoptimized={true}
                                 className="object-cover group-hover:scale-105 transition-transform duration-700"
                             />
 

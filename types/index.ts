@@ -1,52 +1,91 @@
-export type Academy = {
+export type UserRole = string;
+
+export interface User {
     id: string;
     name: string;
-    location: string;
-    rating: number;
-    pricePerSession: number;
-    imageUrl: string;
-    sports: string[];
-};
+    email: string;
+    role: UserRole;
+    avatarUrl?: string;
+    employeeCode?: string;
+}
 
-export type Hall = {
+export interface Hall {
     id: string;
     name: string;
     academyId: string;
-};
+    capacity?: number;
+    wifi?: number | boolean;
+    screen?: number | boolean;
+}
 
-export type Booking = {
+export interface Academy {
+    id: string;
+    name: string;
+    location?: string;
+    rating?: number;
+    pricePerSession?: number;
+    imageUrl?: string;
+    sports?: string[];
+    halls?: Hall[];
+}
+
+export interface Session {
+    id: string;
+    date: string | Date;
+    startTime: string;
+    endTime: string;
+    hallId: string;
+    bookingType: string;
+    eventDate?: Date; // Added based on usage in booking-form
+    trainingHall?: string; // Added based on usage in booking-form
+}
+
+export interface Booking {
     id: string;
     academyId: string;
-    hallId?: string;
+    hallId: string;
     date: string;
     timeSlot: string;
-    status: "upcoming" | "completed" | "cancelled" | "approved" | "rejected" | "pending";
-    organizer?: string;
-    department?: string;
-    eventName?: string;
-
-    // Extended fields from Booking Form
-    fullName?: string; // Contact Person Name
-    contactNumber?: string;
+    status: string;
+    organizer: string;
+    fullName: string;
+    department: string;
+    eventName: string;
+    contactNumber: string;
     merilianCode?: string;
     attendeesVertical?: string;
     attendeesDepartment?: string;
     trainingTitle?: string;
     description?: string;
-    participantsCount?: number;
-    itRequirements?: string;
-    specificRequirements?: string;
-    email?: string;
+    participantsCount: number;
+    email: string;
     matsEvent?: string;
     matsRequestNo?: string;
+    itRequirements?: string;
+    sessions?: Session[];
+}
 
-    // Detailed Sessions
-    sessions?: {
-        id: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        hallId: string;
-        bookingType?: string;
-    }[];
-};
+export interface Company {
+    company_code: string;
+    name: string;
+}
+
+export interface Department {
+    name: string;
+}
+
+export interface BookingType {
+    name: string;
+}
+
+export interface ITRequirement {
+    name: string;
+}
+
+export interface MasterData {
+    master_company: Company[];
+    department_master: Department[];
+    booking_type: BookingType[];
+    it_requirements: ITRequirement[];
+    [key: string]: any;
+}

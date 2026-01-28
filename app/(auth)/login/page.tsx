@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -19,6 +20,9 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await login(email, password);
+            toast.success("Logged in successfully");
+        } catch (error: any) {
+            toast.error(error.message || "Invalid credentials. Please try again.");
         } finally {
             setLoading(false);
         }

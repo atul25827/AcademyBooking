@@ -78,6 +78,7 @@ export default function MyBookingsPage() {
                                 <SelectItem value="all">All</SelectItem>
                                 <SelectItem value="approved">Approved</SelectItem>
                                 <SelectItem value="rejected">Rejected</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
                             </SelectContent>
                         </Select>
 

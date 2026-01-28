@@ -9,12 +9,12 @@ import { MerilLogo } from "../meril-logo";
 const sidebarItems = [
     {
         title: "Dashboard",
-        href: "/admin/dashboard",
+        href: "/dashboard",
         icon: LayoutGrid,
     },
     {
         title: "Booking",
-        href: "/admin/booking",
+        href: "/booking",
         icon: ClipboardList,
     },
     {
@@ -24,7 +24,7 @@ const sidebarItems = [
     },
     {
         title: "All Bookings",
-        href: "/admin/bookings",
+        href: "/bookings",
         icon: CheckSquare,
     },
 ];
