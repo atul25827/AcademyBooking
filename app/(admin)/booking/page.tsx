@@ -3,7 +3,7 @@ import { CreateBookingWrapper } from "./create-booking-wrapper";
 
 export default async function AdminCreateBookingPage() {
     const masterData = await apiServer.getMasterData();
-    const academies = await apiServer.getAcademiesWithHalls();
+    const academies = await apiServer.getAcademiesWithHalls();//need to removed
 
     return (
         <div className="bg-white rounded-[24px] p-6 shadow-[0px_4px_15px_0px_rgba(216,210,252,0.64)] animate-in fade-in duration-500">

@@ -1,32 +1,25 @@
 "use client";
 
-import { Booking } from "@/types";
+import { BookingStatsType } from "@/types";
 import { Calendar, CalendarCheck, Clock, XSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DashboardStatsProps {
-    bookings: Booking[];
+    stats: BookingStatsType | null;
 }
 
-export function DashboardStats({ bookings }: DashboardStatsProps) {
-    const totalEvents = bookings.length;
+export function DashboardStats({ stats }: DashboardStatsProps) {
+    const {
+        total_bookings = 0,
+        total_approved = 0,
+        total_pending = 0,
+        total_rejected = 0
+    } = stats || {};
 
-    const approvedCount = bookings.filter(b =>
-        ["approved", "upcoming", "completed"].includes(b.status)
-    ).length;
-
-    const pendingCount = bookings.filter(b =>
-        b.status === "pending"
-    ).length;
-
-    const rejectedCount = bookings.filter(b =>
-        ["rejected", "cancelled"].includes(b.status)
-    ).length;
-
-    const stats = [
+    const statsData = [
         {
             label: "Total Events",
-            value: totalEvents,
+            value: total_bookings,
             icon: Calendar,
             bgClass: "bg-[#E3E8FF]",
             textClass: "text-[#33398A]",
@@ -34,7 +27,7 @@ export function DashboardStats({ bookings }: DashboardStatsProps) {
         },
         {
             label: "Total Approved",
-            value: approvedCount,
+            value: total_approved,
             icon: CalendarCheck,
             bgClass: "bg-[#D1FADF]",
             textClass: "text-[#027A48]",
@@ -42,7 +35,7 @@ export function DashboardStats({ bookings }: DashboardStatsProps) {
         },
         {
             label: "Total Pending",
-            value: pendingCount,
+            value: total_pending,
             icon: Clock,
             bgClass: "bg-[#FEF0C7]",
             textClass: "text-[#B54708]",
@@ -50,7 +43,7 @@ export function DashboardStats({ bookings }: DashboardStatsProps) {
         },
         {
             label: "Total Rejected",
-            value: rejectedCount,
+            value: total_rejected,
             icon: XSquare,
             bgClass: "bg-[#FEE4E2]",
             textClass: "text-[#B42318]",
@@ -60,7 +53,7 @@ export function DashboardStats({ bookings }: DashboardStatsProps) {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
+            {statsData.map((stat, index) => (
                 <div
                     key={index}
                     className={cn(

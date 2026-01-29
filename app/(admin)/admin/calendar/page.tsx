@@ -7,7 +7,7 @@ export default function AdminCalendarPage() {
     const router = useRouter();
 
     const handleEventClick = (bookingId: string) => {
-        router.push(`/admin/bookings/${bookingId}`);
+        router.push(`/bookings/${bookingId}`);
     };
 
     return (

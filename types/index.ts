@@ -51,6 +51,7 @@ export interface Booking {
     event_status?: string; // Status from API if different
     organizer: string;
     fullName: string;
+    full_name?: string; // Mapped from backend
     department: string;
     eventName: string;
     event_title?: string; // Title from API if different
@@ -71,6 +72,7 @@ export interface Booking {
     owner?: string;
     id?: string;
     specificRequirements?: string;
+    overall_status?: string;
 }
 
 export interface Company {
@@ -134,8 +136,9 @@ export interface BookingDetail {
     specific_requirements: string;
     it_requirement: string;
     mats_event: string;
-    mats_request_no: string;
+    mats_request_number: string;
     owner?: string;
+    can_approve?: boolean; // Indicates if the user can act on this booking
     event_planning: Array<{
         name?: string;
         event_date: string;

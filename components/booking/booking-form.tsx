@@ -184,7 +184,7 @@ export function BookingForm({ academyId, masterData, academies, onSuccess, onCan
         if (!formData.endDate) newErrors["endDate"] = "Required";
 
         if (sessionState.list.length === 0) {
-            newErrors["global.sessions"] = "Add at least one session";
+            newErrors["global.sessions"] = "Add at least one Plan";
         }
 
         if (Object.keys(newErrors).length > 0) {
@@ -296,6 +296,7 @@ export function BookingForm({ academyId, masterData, academies, onSuccess, onCan
                             <Input
                                 value={formData.contactNumber}
                                 onChange={(e) => updateField("contactNumber", e.target.value)}
+                                maxLength={13}
                             />
                             {renderError("contactNumber")}
                         </div>
@@ -385,6 +386,7 @@ export function BookingForm({ academyId, masterData, academies, onSuccess, onCan
                                         selected={formData.startDate}
                                         onSelect={(date) => updateField("startDate", date)}
                                         initialFocus
+                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                                     />
                                 </PopoverContent>
                             </Popover>
@@ -411,6 +413,12 @@ export function BookingForm({ academyId, masterData, academies, onSuccess, onCan
                                         selected={formData.endDate}
                                         onSelect={(date) => updateField("endDate", date)}
                                         initialFocus
+                                        disabled={(date) => {
+                                            const today = new Date(new Date().setHours(0, 0, 0, 0));
+                                            if (date < today) return true;
+                                            if (formData.startDate && date < formData.startDate) return true;
+                                            return false;
+                                        }}
                                     />
                                 </PopoverContent>
                             </Popover>

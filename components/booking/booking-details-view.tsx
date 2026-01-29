@@ -1,14 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type BookingDetail } from "@/types"; // Keeping for type safety where possible
+import { format } from "date-fns";
+import { type BookingDetail } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Calendar, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, Calendar, Clock, MapPin, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface BookingDetailsViewProps {
-    booking: BookingDetail; // Accept raw data from API typed as BookingDetail
+    booking: BookingDetail;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -32,10 +38,37 @@ function StatusBadge({ status }: { status: string }) {
 
 export function BookingDetailsView({ booking }: BookingDetailsViewProps) {
     const router = useRouter();
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [actionToPerform, setActionToPerform] = useState<'Approve' | 'Reject' | null>(null);
+    const [remarks, setRemarks] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const handleBack = () => {
         router.back();
     };
 
+    const initiateAction = (action: 'Approve' | 'Reject') => {
+        setActionToPerform(action);
+        setRemarks("");
+        setIsDialogOpen(true);
+    };
+
+    const confirmAction = async () => {
+        if (!actionToPerform) return;
+
+        setIsSubmitting(true);
+        try {
+            await api.updateBookingStatus(booking.booking_id, actionToPerform, remarks);
+            toast.success(`Booking ${actionToPerform} successfully`);
+            setIsDialogOpen(false);
+            router.refresh();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to update status");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="container mx-auto py-6 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -53,6 +86,26 @@ export function BookingDetailsView({ booking }: BookingDetailsViewProps) {
                                 </h1>
                                 <StatusBadge status={booking.event_status || "Pending"} />
                             </div>
+
+                            {/* Action Buttons */}
+                            {booking.can_approve && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={() => initiateAction('Approve')}
+                                        className="bg-[#D1FADF] cursor-pointer hover:bg-[#A6F4C5] text-[#027A48] border border-[#027A48]/20 gap-2 font-medium h-8"
+                                    >
+                                        <Check className="h-4 w-4" />
+                                        Approve
+                                    </Button>
+                                    <Button
+                                        onClick={() => initiateAction('Reject')}
+                                        className="bg-[#FEE4E2] cursor-pointer hover:bg-[#FECDCA] text-[#B42318] border border-[#B42318]/20 gap-2 font-medium ml-2 h-8"
+                                    >
+                                        <X className="h-4 w-4" />
+                                        Reject
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
@@ -63,12 +116,12 @@ export function BookingDetailsView({ booking }: BookingDetailsViewProps) {
                             <div className="flex items-center gap-2 whitespace-nowrap">
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="h-4 w-4 text-slate-400" />
-                                    <span>{booking?.event_start_date ? new Date(booking.event_start_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}</span>
+                                    <span>{booking?.event_start_date ? format(new Date(booking.event_start_date), "dd MMM yyyy") : "N/A"}</span>
                                 </div>
                                 <span className="text-slate-300">-</span>
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="h-4 w-4 text-slate-400" />
-                                    <span>{booking.event_end_date ? new Date(booking.event_end_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}</span>
+                                    <span>{booking.event_end_date ? format(new Date(booking.event_end_date), "dd MMM yyyy") : "N/A"}</span>
                                 </div>
                             </div>
                         </div>
@@ -161,7 +214,7 @@ export function BookingDetailsView({ booking }: BookingDetailsViewProps) {
                             </div>
                             <div>
                                 <h4 className="text-xs text-slate-500 font-medium">MATS Request #</h4>
-                                <span className="font-medium text-slate-900 text-sm">{booking.mats_request_no || "N/A"}</span>
+                                <span className="font-medium text-slate-900 text-sm">{booking.mats_request_number || "N/A"}</span>
                             </div>
                         </CardContent>
                     </Card>
@@ -210,9 +263,38 @@ export function BookingDetailsView({ booking }: BookingDetailsViewProps) {
                             </div>
                         </CardContent>
                     </Card>
-
                 </div>
             </div>
+
+            {/* Dialog */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirm {actionToPerform}</DialogTitle>
+                        <DialogDescription>
+                            Please provide remarks for this action.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="remarks">Remarks</Label>
+                            <textarea
+                                id="remarks"
+                                className="flex min-h-[80px] w-full rounded-[6px] border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-[#BEBEBE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="Enter your remarks here..."
+                                value={remarks}
+                                onChange={(e) => setRemarks(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button onClick={confirmAction} disabled={isSubmitting} className={actionToPerform === 'Reject' ? "bg-red-600 hover:bg-red-700 cursor-pointer" : "bg-green-600 hover:bg-green-700 cursor-pointer"}>
+                            {isSubmitting ? "Processing..." : "Confirm"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div >
     );
 }

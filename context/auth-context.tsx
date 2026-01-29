@@ -40,33 +40,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = async (email: string, password: string) => {
         try {
-            const data = await api.login(email, password);
-            console.log(data, "data")
-            // Map API response to User type
-            // Response: { sid, user_id, role, full_name }
+            const result = await api.login(email, password);
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            const data = result.data;
             const apiUser = {
-                id: data.message.user_id || "unknown", // Fallback if needed
+                id: data.message.user_id || "unknown",
                 name: data.message.full_name || data.message.user_id,
-                email: data.message.user_id, // "usr" is usually email or username
-                role: data.message.role ? data.message.role : "Academy User", // Default
-                avatarUrl: data.message.image, // Assuming image might be returned, or use fallback
+                email: data.message.user_id,
+                role: data.message.role ? data.message.role : "Academy User",
+                avatarUrl: data.message.image,
                 employeeCode: data.message.employee_code,
             } as User;
 
-            // Normalize role (case insensitive check)
             if (data.message.role && (data.message.role.toLowerCase() === 'system manager' || data.message.role.toLowerCase().includes('academy admin'))) {
                 apiUser.role = 'Academy Admin';
             } else {
                 apiUser.role = 'Academy User';
             }
 
-            console.log("Login successful", apiUser);
-
             setUser(apiUser);
             localStorage.setItem("academy_auth_user", JSON.stringify(apiUser));
             document.cookie = `auth_token=${encodeURIComponent(JSON.stringify(apiUser))}; path=/; max-age=${60 * 60 * 24 * 7}`;
 
-            // Redirect based on role (Case insensitive check just to be safe, though we just set it)
             if (apiUser.role.toUpperCase() === "ACADEMY ADMIN") {
                 router.push("/dashboard");
             } else {
@@ -74,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             console.error("Login failed:", error);
-            throw error; // Propagate error to component for handling
+            throw error;
         }
     };
 
@@ -82,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api.logout();
         setUser(null);
         localStorage.removeItem("academy_auth_user");
-        // Clear cookies client-side if needed, though the API response should handle it via headers
         document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         document.cookie = "sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         document.cookie = "system_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

@@ -35,7 +35,7 @@ export function AdminSidebar() {
     return (
         <aside className="w-[100px] bg-[#D4D1E8] flex flex-col items-center py-6 h-screen fixed left-0 top-0 z-50">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 z-50">
+            <Link href="/dashboard" className="flex items-center gap-2 z-50">
                 <MerilLogo className="h-10 w-16" />
             </Link>
 

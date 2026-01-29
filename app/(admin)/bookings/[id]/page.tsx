@@ -34,25 +34,4 @@ export default async function BookingDetailsPage({ params }: PageProps) {
 }
 
 
-// const ActionButtons = (
-//     <>
-//         {booking.status === 'pending' && (
-//             <>
-//                 <Button
-//                     onClick={() => handleAction('approved')}
-//                     className="bg-[#D1FADF] hover:bg-[#A6F4C5] text-[#027A48] border border-[#027A48]/20 gap-2 font-medium"
-//                 >
-//                     <Check className="h-4 w-4" />
-//                     Approve
-//                 </Button>
-//                 <Button
-//                     onClick={() => handleAction('rejected')}
-//                     className="bg-[#FEE4E2] hover:bg-[#FECDCA] text-[#B42318] border border-[#B42318]/20 gap-2 font-medium ml-2"
-//                 >
-//                     <X className="h-4 w-4" />
-//                     Reject
-//                 </Button>
-//             </>
-//         )}
-//     </>
-// );
+

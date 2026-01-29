@@ -21,7 +21,7 @@ export function HallCard({ hall, academyName }: HallCardProps) {
             return;
         }
         // Redirect to booking form mode with this hall selected
-        router.push(`/book?academyId=${hall.academyId}&hallId=${hall.id}&action=book`);
+        router.push(`/book?academyId=${hall.academyId}&action=book`);
     };
 
     return (
@@ -46,7 +46,7 @@ export function HallCard({ hall, academyName }: HallCardProps) {
 
                 {/* Amenities / Stats Row (Mocked based on Figma design) */}
                 <div className="absolute bottom-6 left-6 flex gap-4">
-                    {hall.wifi > 0 && (
+                    {hall && hall?.wifi && (
                         <div className="flex flex-col items-center gap-1">
                             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
                                 <Wifi className="w-4 h-4 text-[#7D3FD0]" />
@@ -60,7 +60,7 @@ export function HallCard({ hall, academyName }: HallCardProps) {
                         </div>
                         <span className="text-[10px] text-white font-medium">{hall.capacity}</span>
                     </div>
-                    {hall.screen > 0 && (
+                    {hall?.screen && (
                         <div className="flex flex-col items-center gap-1">
                             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
                                 <Monitor className="w-4 h-4 text-[#7D3FD0]" />

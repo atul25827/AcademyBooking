@@ -1,4 +1,3 @@
-import { Booking } from "@/types";
 import { Calendar, CalendarCheck, CalendarClock, CalendarX } from "lucide-react";
 import { cn } from "@/lib/utils";
 

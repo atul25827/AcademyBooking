@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addDays, startOfWeek, endOfWeek, getYear, setMonth, setYear, getMonth } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAcademy } from "@/context/academy-context";
 import { api } from "@/lib/api";
-import { type Booking, type Academy, type Hall } from "@/types";
+import { type Booking } from "@/types";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -26,51 +27,54 @@ export default function CalendarView({ onEventClick }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [bookings, setBookings] = useState<Booking[]>([]);
 
-    // Filter Data
-    const [academies, setAcademies] = useState<Academy[]>([]);
-    const [halls, setHalls] = useState<Hall[]>([]);
+    const { academies } = useAcademy();
 
     // Selection state
     const [selectedAcademy, setSelectedAcademy] = useState<string>("");
     const [selectedHall, setSelectedHall] = useState<string>("");
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+
+    // Derived halls based on context data
+    const allHalls = academies.flatMap(a => a.halls || []).map(h => ({ ...h, academyId: academies.find(a => a.halls?.some(hall => hall.id === h.id))?.id }));
+
+    // Filter halls when academy changes
+    const filteredHalls = (selectedAcademy !== "all" && selectedAcademy !== "")
+        ? (academies.find(a => a.id === selectedAcademy)?.halls || [])
+        : allHalls;
 
     useEffect(() => {
-        const loadData = async () => {
+        const fetchEvents = async () => {
             setLoading(true);
             try {
-                const [bookingsData, academiesData, hallsData] = await Promise.all([
-                    api.listBookings(),
-                    api.listAcademies(),
-                    api.listHalls()
-                ]);
-                setBookings(bookingsData);
-                setAcademies(academiesData);
-                setHalls(hallsData);
+                const start = startOfMonth(currentDate).toISOString();
+                const end = endOfMonth(currentDate).toISOString();
+                const data = await api.getCalendarBookings(
+                    format(startOfMonth(currentDate), "yyyy-MM-dd"),
+                    format(endOfMonth(currentDate), "yyyy-MM-dd"),
+                    selectedAcademy,
+                    selectedHall
+                );
+
+                setBookings(data);
             } catch (error) {
-                console.error("Failed to fetch data", error);
+                console.error("Failed to fetch calendar events", error);
+                setBookings([]);
             } finally {
                 setLoading(false);
             }
         };
-        loadData();
-    }, []);
 
-    // Filter halls when academy changes
-    const filteredHalls = (selectedAcademy !== "all" && selectedAcademy !== "")
-        ? halls.filter(h => h.academyId === selectedAcademy)
-        : halls;
+        fetchEvents();
+    }, [currentDate, selectedAcademy, selectedHall]);
 
     // Reset selected hall if it doesn't belong to selected academy
     useEffect(() => {
         if (selectedAcademy !== "all" && selectedAcademy !== "" && selectedHall !== "all" && selectedHall !== "") {
-            const hall = halls.find(h => h.id === selectedHall);
-            if (hall && hall.academyId !== selectedAcademy) {
-                setSelectedHall("");
-            }
+            const hallBelongs = academies.find(a => a.id === selectedAcademy)?.halls?.some(h => h.id === selectedHall);
+            if (!hallBelongs) setSelectedHall("");
         }
-    }, [selectedAcademy, selectedHall, halls]);
+    }, [selectedAcademy, selectedHall, academies]);
 
 
     const handleMonthChange = (month: string) => {
@@ -94,13 +98,19 @@ export default function CalendarView({ onEventClick }: CalendarViewProps) {
     });
 
     // Helper to get events for a specific date
-    const getEventsForDay = (date: Date) => {
+    const getEventsForDay = (day: Date) => {
         return bookings.filter(booking => {
-            const isDateMatch = isSameDay(new Date(booking.date), date);
-            const isAcademyMatch = selectedAcademy === "all" || selectedAcademy === "" || booking.academyId === selectedAcademy;
-            const isHallMatch = selectedHall === "all" || selectedHall === "" || booking.hallId === selectedHall;
+            if (!booking.event_start_date) return false;
 
-            return isDateMatch && isAcademyMatch && isHallMatch;
+            // Check if day is within start and end date (inclusive)
+            const start = new Date(booking.event_start_date);
+            // reset time to 0 to ensure accurate date-only comparison
+            start.setHours(0, 0, 0, 0);
+
+            const end = booking.event_end_date ? new Date(booking.event_end_date) : new Date(start);
+            end.setHours(23, 59, 59, 999);
+
+            return day >= start && day <= end;
         });
     };
 
@@ -200,9 +210,6 @@ export default function CalendarView({ onEventClick }: CalendarViewProps) {
                         >
                             <ChevronLeft className="w-6 h-6" />
                         </button>
-                        {/* <span className="text-[16px] font-normal text-[#8E8787] w-40 text-center uppercase md:normal-case block">
-                            {format(currentDate, "MMMM yyyy")}
-                        </span> */}
                         <button
                             onClick={() => setCurrentDate(addDays(currentDate, 30))} // Approximate month forward
                             className="p-2 hover:bg-slate-50 rounded-[16px] text-slate-400 hover:text-[#0050fd] transition-colors"
@@ -255,17 +262,17 @@ export default function CalendarView({ onEventClick }: CalendarViewProps) {
                                     <div className="flex flex-col gap-1 mt-1 overflow-y-auto max-h-[80px] md:max-h-[100px] scrollbar-hide">
                                         {dayEvents.map((event) => (
                                             <div
-                                                key={event.id}
-                                                onClick={() => onEventClick?.(event.id)}
+                                                key={event.booking_id}
+                                                onClick={() => onEventClick?.(event?.booking_id)}
                                                 onMouseEnter={(e) => handleEventMouseEnter(event, e)}
                                                 onMouseLeave={handleEventMouseLeave}
                                                 className="px-1.5 md:px-2 py-1 md:py-1.5 rounded-[6px] bg-[#0050fd]/10 border-l-[3px] border-[#0050fd] hover:bg-[#0050fd] hover:border-[#0050fd] group/event transition-all cursor-pointer relative"
                                             >
                                                 <p className="text-[10px] md:text-xs font-medium text-[#0050fd] line-clamp-1 group-hover/event:text-white">
-                                                    {event.timeSlot}
+                                                    {event.event_title}
                                                 </p>
                                                 <p className="text-[8px] md:text-[10px] text-[#0050fd]/80 line-clamp-1 group-hover/event:text-white/90">
-                                                    {event.status === 'upcoming' ? 'Booked' : event.status}
+                                                    {event.status}
                                                 </p>
                                             </div>
                                         ))}
@@ -289,13 +296,13 @@ export default function CalendarView({ onEventClick }: CalendarViewProps) {
                 >
                     <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
                         <span className="text-[#8E8787] font-poppins text-sm">Organizer :</span>
-                        <span className="text-[#0f322e] font-poppins text-sm font-medium">{hoveredEvent.event.organizer || "N/A"}</span>
+                        <span className="text-[#0f322e] font-poppins text-sm font-medium">{hoveredEvent.event.full_name || "N/A"}</span>
 
                         <span className="text-[#8E8787] font-poppins text-sm">Department :</span>
                         <span className="text-[#0f322e] font-poppins text-sm font-medium">{hoveredEvent.event.department || "N/A"}</span>
 
                         <span className="text-[#8E8787] font-poppins text-sm">Event Name :</span>
-                        <span className="text-[#0f322e] font-poppins text-sm font-medium">{hoveredEvent.event.eventName || "N/A"}</span>
+                        <span className="text-[#0f322e] font-poppins text-sm font-medium">{hoveredEvent.event.event_title || "N/A"}</span>
                     </div>
                 </div>
             )}
