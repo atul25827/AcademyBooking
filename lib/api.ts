@@ -1,4 +1,4 @@
-import { Academy, Hall, Booking } from "@/types";
+import { Academy, Hall, Booking, BookingStatsType, PaginatedResponse } from "@/types";
 import { MOCK_ACADEMIES, MOCK_HALLS, MOCK_BOOKINGS } from "@/constants/mock-data";
 
 export type { Academy, Hall, Booking }; // Re-export for backward compatibility if needed, or just let components import from types
@@ -145,4 +145,91 @@ export const api = {
         return result;
     },
 
+    async getUserBookingStats(headers: Record<string, string> = {}): Promise<{ message: BookingStatsType }> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            throw new Error("Configuration error: NEXT_PUBLIC_FRAPPE_URL is not defined");
+        }
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_user_booking_stats`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers
+                },
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                // Return default if auth fails or other error, ensuring page doesn't crash
+                console.error("Failed to fetch stats, status:", response.status);
+                return {
+                    message: {
+                        total_bookings: 0,
+                        total_approved: 0,
+                        total_pending: 0,
+                        total_rejected: 0
+                    }
+                };
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching booking stats:", error);
+            // Return default zero stats on error to handle gracefully
+            return {
+                message: {
+                    total_bookings: 0,
+                    total_approved: 0,
+                    total_pending: 0,
+                    total_rejected: 0
+                }
+            };
+        }
+    },
+
+    async getPaginatedBookings(
+        page: number = 1,
+        limit: number = 10,
+        filters: { academy?: string; hall?: string; status?: string } = {}
+    ): Promise<PaginatedResponse<Booking>> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            throw new Error("Configuration error: NEXT_PUBLIC_FRAPPE_URL is not defined");
+        }
+
+        const queryParams = new URLSearchParams({
+            page_number: page.toString(),
+            page_length: limit.toString(),
+        });
+
+        if (filters.academy && filters.academy !== "all") queryParams.append("academy", filters.academy);
+        if (filters.hall && filters.hall !== "all") queryParams.append("hall", filters.hall);
+        if (filters.status && filters.status !== "all") queryParams.append("status", filters.status);
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_booking_list?${queryParams.toString()}`, {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch bookings");
+            }
+
+            const json = await response.json();
+            return json.message; // Assuming the structure based on user description
+        } catch (error) {
+            console.error("Error fetching paginated bookings:", error);
+            return {
+                data: [],
+                total_count: 0,
+                page_number: page,
+                page_length: limit
+            };
+        }
+    },
 };

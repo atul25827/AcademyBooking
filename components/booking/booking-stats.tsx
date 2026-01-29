@@ -2,26 +2,22 @@ import { Booking } from "@/types";
 import { Calendar, CalendarCheck, CalendarClock, CalendarX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface BookingStatsProps {
-    bookings: Booking[];
+export interface BookingStatsProps {
+    stats: {
+        total_bookings: number;
+        total_approved: number;
+        total_pending: number;
+        total_rejected: number;
+    };
 }
 
-export function BookingStats({ bookings }: BookingStatsProps) {
-    const totalEvents = bookings.length;
+export function BookingStats({ stats }: BookingStatsProps) {
+    const totalEvents = stats?.total_bookings || 0;
+    const approvedCount = stats?.total_approved || 0;
+    const pendingCount = stats?.total_pending || 0;
+    const rejectedCount = stats?.total_rejected || 0;
 
-    const approvedCount = bookings.filter(b =>
-        ["approved", "upcoming", "completed"].includes(b.status)
-    ).length;
-
-    const pendingCount = bookings.filter(b =>
-        b.status === "pending"
-    ).length;
-
-    const rejectedCount = bookings.filter(b =>
-        ["rejected", "cancelled"].includes(b.status)
-    ).length;
-
-    const stats = [
+    const statCards = [
         {
             label: "Total Events",
             value: totalEvents,
@@ -58,7 +54,7 @@ export function BookingStats({ bookings }: BookingStatsProps) {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
+            {statCards.map((stat, index) => (
                 <div
                     key={index}
                     className={cn(

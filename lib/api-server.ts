@@ -43,12 +43,6 @@ export const apiServer = {
         }
 
         try {
-            // We can also forward cookies here if needed in the future, 
-            // but for now keeping it as it was (public or just env based).
-            // If this endpoint is public, no need for cookies. 
-            // If it needs auth, we should add cookies here too.
-            // Assuming public for now as per previous code, but moving to server file is safer for future.
-
             const response = await fetch(`${baseUrl}/api/method/academy.api.academy.get_academies_with_halls`, {
                 cache: 'no-store'
             });
@@ -76,6 +70,40 @@ export const apiServer = {
         } catch (error) {
             console.error("Error fetching academies:", error);
             return [];
+        }
+    },
+
+    async getBookingDetails(bookingId: string): Promise<any> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            console.error("NEXT_PUBLIC_FRAPPE_URL is not defined");
+            return null;
+        }
+
+        try {
+            const cookieStore = await cookies();
+            const allCookies = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join('; ');
+
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_booking_details?booking_id=${bookingId}`, {
+                method: 'GET',
+                headers: {
+                    'Cookie': allCookies
+                },
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                console.error("Failed to fetch booking details server-side", response.status);
+                return null;
+            }
+
+            const json = await response.json();
+            const data = json.message?.data || json.message;
+            return data || null;
+
+        } catch (error) {
+            console.error("Error fetching booking details:", error);
+            return null;
         }
     }
 };
