@@ -23,8 +23,8 @@ export function Header() {
     // Navigation Items
     const navItems = [
         { name: "Home", href: "/", showAlways: true },
-        { name: "Book", href: "/book", protected: true },
-        { name: "Calendar", href: "/calendar", protected: true },
+        { name: "Book", href: "/book", showAlways: true },
+        { name: "Calendar", href: "/calendar", showAlways: true },
         { name: "My Bookings", href: "/my-bookings", protected: true },
         { name: "About Us", href: "/about", showAlways: true },
     ];
@@ -41,7 +41,8 @@ export function Header() {
                 initial={{ y: -100 }}
                 animate={{ y: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="sticky top-0 z-50 w-full border-b border-white/20 backdrop-blur-xl shadow-sm bg-white/10"
+                className="sticky top-0 z-50 w-full border-b border-white/20 backdrop-blur-xl shadow-sm"
+                style={{ background: "linear-gradient(117deg, #EDEFEB 14.42%, #FAF1E4 46.63%, #DFECF3 87.02%)" }}
             >
                 <div className="container flex h-20 items-center justify-between px-4 sm:px-8 max-w-7xl mx-auto">
                     {/* Left: Logo */}
@@ -50,7 +51,7 @@ export function Header() {
                     </Link>
 
                     {/* Center: Desktop Navigation (Pill Shape) */}
-                    <nav className="hidden lg:flex items-center p-1.5 bg-white/50 border border-white/40 shadow-sm backdrop-blur-md rounded-full absolute left-1/2 -translate-x-1/2">
+                    <nav className="hidden lg:flex items-center p-1.5 bg-white/50 border border-white/40 shadow-sm backdrop-blur-md rounded-[12px] absolute left-1/2 -translate-x-1/2">
                         {filteredNavItems.map((item) => {
                             const isActive = pathname === item.href;
                             return (
@@ -58,7 +59,7 @@ export function Header() {
                                     key={item.name}
                                     href={item.href}
                                     className={cn(
-                                        "relative px-5 py-2.5 text-sm font-medium rounded-full transition-all duration-300",
+                                        "relative px-5 py-2.5 text-sm font-medium rounded-[12px] transition-all duration-300",
                                         isActive
                                             ? "text-white"
                                             : "text-slate-600 hover:text-[#7D3FD0] hover:bg-slate-100/50"
@@ -67,7 +68,7 @@ export function Header() {
                                     {isActive && (
                                         <motion.div
                                             layoutId="activeTab"
-                                            className="absolute inset-0 bg-[#7D3FD0] rounded-full shadow-md"
+                                            className="absolute inset-0 bg-[#7D3FD0] rounded-[12px] shadow-md"
                                             transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                         />
                                     )}
@@ -81,8 +82,8 @@ export function Header() {
                     <div className="flex items-center gap-4 z-50">
                         {isAuthenticated ? (
                             <div className="hidden sm:flex items-center gap-4">
-                                <div className="flex items-center gap-2 pl-1 pr-4 py-1 bg-[#7D3FD0] rounded-full text-white shadow-lg shadow-purple-900/20 hover:bg-[#6c35b5] transition-colors cursor-default">
-                                    <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                                <div className="flex items-center gap-2 pl-1 pr-4 py-1 bg-[#7D3FD0] rounded-[12px] text-white shadow-lg shadow-purple-900/20 hover:bg-[#6c35b5] transition-colors cursor-default">
+                                    <div className="h-8 w-8 rounded-[12px] bg-white/20 flex items-center justify-center">
                                         <User className="h-4 w-4 text-white" />
                                     </div>
                                     <span className="text-sm font-medium pr-1">{user?.name || "User"}</span>
@@ -91,7 +92,7 @@ export function Header() {
                                     variant="ghost"
                                     size="icon"
                                     onClick={logout}
-                                    className="text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-full"
+                                    className="text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-[12px]"
                                     title="Logout"
                                 >
                                     <LogOut className="h-5 w-5" />
@@ -99,7 +100,7 @@ export function Header() {
                             </div>
                         ) : (
                             <Link href="/login" className="hidden sm:block">
-                                <Button className="rounded-full bg-[#7D3FD0] hover:bg-[#6c35b5] text-white px-6 shadow-lg shadow-purple-900/20">
+                                <Button className="rounded-[12px] bg-[#7D3FD0] hover:bg-[#6c35b5] text-white px-6 shadow-lg shadow-purple-900/20">
                                     Login
                                 </Button>
                             </Link>
@@ -133,7 +134,7 @@ export function Header() {
                                     key={item.href}
                                     href={item.href}
                                     className={cn(
-                                        "px-4 py-3 rounded-xl text-lg font-medium transition-colors",
+                                        "px-4 py-3 rounded-[12px] text-lg font-medium transition-colors",
                                         pathname === item.href
                                             ? "bg-[#7D3FD0]/10 text-[#7D3FD0]"
                                             : "text-slate-600 hover:bg-slate-50"
@@ -146,7 +147,7 @@ export function Header() {
                                 {isAuthenticated ? (
                                     <div className="flex flex-col gap-3">
                                         <div className="flex items-center gap-3 px-4 py-2">
-                                            <div className="h-10 w-10 rounded-full bg-[#7D3FD0]/10 flex items-center justify-center">
+                                            <div className="h-10 w-10 rounded-[12px] bg-[#7D3FD0]/10 flex items-center justify-center">
                                                 <User className="h-5 w-5 text-[#7D3FD0]" />
                                             </div>
                                             <div>
@@ -155,8 +156,8 @@ export function Header() {
                                             </div>
                                         </div>
                                         <Button
-                                            variant="destructive"
-                                            className="w-full rounded-xl"
+                                            // variant="destructive"
+                                            className="w-full bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded-[12px]"
                                             onClick={logout}
                                         >
                                             Logout
@@ -164,7 +165,7 @@ export function Header() {
                                     </div>
                                 ) : (
                                     <Link href="/login">
-                                        <Button className="w-full bg-[#7D3FD0] hover:bg-[#6c35b5] text-white rounded-xl h-12 text-lg">
+                                        <Button className="w-full bg-[#7D3FD0] hover:bg-[#6c35b5] text-white rounded-[12px] h-12 text-lg">
                                             Login
                                         </Button>
                                     </Link>

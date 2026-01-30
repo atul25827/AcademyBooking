@@ -2,8 +2,13 @@
 
 import * as React from "react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronsUpDown, Trash2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MasterData, Academy } from "@/types";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -24,85 +29,217 @@ import {
 } from "@/components/ui/select";
 
 interface BookingFormProps {
-    academyId: string;
+    academyId?: string;
+    masterData: MasterData | null;
+    academies: Academy[];
+    onSuccess?: () => void;
+    onCancel?: () => void;
 }
 
-interface Session {
-    id: string;
-    trainingHall: string;
-    bookingType: string;
-    eventDate: Date | undefined;
-    startTime: string;
-    endTime: string;
-}
+const FormLabel = ({ label, required = true }: { label: string; required?: boolean }) => (
+    <Label className="text-[#767676] text-[20px] font-normal">
+        {label} {required && <span className="text-red-500">*</span>}
+    </Label>
+);
 
-export function BookingForm({ academyId }: BookingFormProps) {
-    // Hall Booking Info State
-    const [startDate, setStartDate] = React.useState<Date>();
-    const [endDate, setEndDate] = React.useState<Date>();
-    const [hallInfo, setHallInfo] = React.useState({
-        academy: academyId,
+export function BookingForm({ academyId, masterData, academies, onSuccess, onCancel }: BookingFormProps) {
+    const router = useRouter();
+
+    const { user } = useAuth();
+
+    // Consolidated form state for better management and fewer re-renders
+    const [formData, setFormData] = React.useState({
+        startDate: undefined as Date | undefined,
+        endDate: undefined as Date | undefined,
+        academy: academyId || "",
+        merilianCode: "",
         fullName: "",
         contactNumber: "",
-        merilianCode: "",
+        email: "",
         attendeesVertical: "",
         attendeesDepartment: "",
         trainingTitle: "",
         description: "",
-        department: "",
-    });
-
-    // Day Wise Plan State
-    const [currentSession, setCurrentSession] = React.useState<Partial<Session>>({
-        trainingHall: "",
-        bookingType: "",
-        startTime: "",
-        endTime: "",
-    });
-    const [sessionDate, setSessionDate] = React.useState<Date>();
-
-    const [sessions, setSessions] = React.useState<Session[]>([]);
-
-    // Participants Form State
-    const [participantsInfo, setParticipantsInfo] = React.useState({
         numberOfParticipants: "",
         itRequirements: "",
         specificRequirements: "",
-        email: "",
         matsEvent: "",
         matsRequestNo: "",
     });
 
-    const handleAddSession = () => {
-        if (
-            currentSession.trainingHall &&
-            currentSession.bookingType &&
-            sessionDate &&
-            currentSession.startTime &&
-            currentSession.endTime
-        ) {
-            const newSession: Session = {
-                id: Math.random().toString(36).substr(2, 9),
-                trainingHall: currentSession.trainingHall,
-                bookingType: currentSession.bookingType,
-                eventDate: sessionDate,
-                startTime: currentSession.startTime!,
-                endTime: currentSession.endTime!,
-            };
-            setSessions([...sessions, newSession]);
-            // Reset current session inputs except date maybe? Or clear all.
-            setCurrentSession({
-                trainingHall: "",
-                bookingType: "",
-                startTime: "",
-                endTime: "",
+    React.useEffect(() => {
+        if (user) {
+            setFormData(prev => ({
+                ...prev,
+                merilianCode: user.employeeCode || "",
+                fullName: user.name || "",
+                email: user.email || prev.email // Also mapping email as it's common
+            }));
+        }
+    }, [user]);
+
+    // Consolidated session state
+    const [sessionState, setSessionState] = React.useState({
+        list: [] as any[],
+        draft: {
+            trainingHall: [] as string[],
+            bookingType: "",
+            startTime: "",
+            endTime: "",
+            eventDate: undefined as Date | undefined,
+        }
+    });
+
+    const [errors, setErrors] = React.useState<Record<string, string>>({});
+
+    // Memoized derived state
+    const availableHalls = React.useMemo(() => {
+        const selectedAc = academies.find(a => a.id === formData.academy);
+        return selectedAc?.halls || [];
+    }, [formData.academy, academies]);
+
+    const updateField = (field: keyof typeof formData, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
             });
-            setSessionDate(undefined);
         }
     };
 
+    const updateSessionDraft = (field: keyof typeof sessionState.draft, value: any) => {
+        setSessionState(prev => ({
+            ...prev,
+            draft: { ...prev.draft, [field]: value }
+        }));
+        if (errors[`session.${field}`]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[`session.${field}`];
+                return newErrors;
+            });
+        }
+    };
+
+    const handleAddSession = () => {
+        const { draft, list } = sessionState;
+        if (!draft.eventDate || !draft.startTime || !draft.endTime || draft.trainingHall.length === 0 || !draft.bookingType) {
+            setErrors(prev => ({ ...prev, "global.sessions": "Please fill all session details" }));
+            return;
+        }
+
+        // Create a separate session for each selected hall to create multiple records
+        const newSessions = draft.trainingHall.map(hallId => ({
+            id: Math.random().toString(36).substr(2, 9),
+            ...draft,
+            trainingHall: hallId // Store as single ID per record
+        }));
+
+        setSessionState({
+            list: [...list, ...newSessions],
+            draft: {
+                trainingHall: [],
+                bookingType: "",
+                startTime: "",
+                endTime: "",
+                eventDate: undefined,
+            }
+        });
+
+        setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors["global.sessions"];
+            return newErrors;
+        });
+    };
+
     const handleDeleteSession = (id: string) => {
-        setSessions(sessions.filter((s) => s.id !== id));
+        setSessionState(prev => ({
+            ...prev,
+            list: prev.list.filter(s => s.id !== id)
+        }));
+    };
+
+    const handleSubmit = async () => {
+        const newErrors: Record<string, string> = {};
+
+        // Validation
+        const requiredFields: (keyof typeof formData)[] = [
+            "academy", "merilianCode", "fullName", "contactNumber",
+            "email", "attendeesDepartment",
+            "trainingTitle", "description", "numberOfParticipants",
+            "itRequirements", "matsEvent"
+        ];
+
+        requiredFields.forEach(field => {
+            if (!formData[field]) newErrors[field] = "Required";
+        });
+
+        if (formData.matsEvent === 'yes' && !formData.matsRequestNo) {
+            newErrors["matsRequestNo"] = "Required";
+        }
+        if (!formData.startDate) newErrors["startDate"] = "Required";
+        if (!formData.endDate) newErrors["endDate"] = "Required";
+
+        if (sessionState.list.length === 0) {
+            newErrors["global.sessions"] = "Add at least one Plan";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            toast.error("Please fill all required fields");
+            return;
+        }
+
+        // Structure data for submission
+        const payload = {
+            academy: formData.academy,
+            department: formData.attendeesDepartment,
+            vertical: formData.attendeesVertical,
+            event_title: formData.trainingTitle,
+            description: formData.description,
+            event_start_date: formData.startDate ? format(formData.startDate, "yyyy-MM-dd") : "",
+            event_end_date: formData.endDate ? format(formData.endDate, "yyyy-MM-dd") : "",
+            no_of_participants: Number(formData.numberOfParticipants),
+            it_requirement: formData.itRequirements,
+            merilian_code: formData.merilianCode,
+            full_name: formData.fullName,
+            email: formData.email,
+            contact_number: formData.contactNumber,
+            mats_request_number: formData.matsRequestNo,
+            specific_requirement_if_any: formData.specificRequirements,
+            mats_event: formData.matsEvent === "yes" ? "Yes" : "No",
+            event_planning: sessionState.list.map(session => ({
+                hall: Array.isArray(session.trainingHall) ? session.trainingHall.join(",") : session.trainingHall,
+                booking_type: session.bookingType,
+                event_date: session.eventDate ? format(session.eventDate, "yyyy-MM-dd") : "",
+                event_start_time: session.startTime.length === 5 ? `${session.startTime}:00` : session.startTime,
+                event_end_time: session.endTime.length === 5 ? `${session.endTime}:00` : session.endTime
+            }))
+        };
+
+        try {
+            toast.loading("Submitting booking...");
+            await api.createBooking(payload);
+            toast.dismiss();
+            toast.success("Booking Submitted Successfully!");
+            setErrors({});
+            if (onSuccess) {
+                onSuccess();
+            } else {
+                router.push("/my-bookings");
+            }
+        } catch (error: any) {
+            toast.dismiss();
+            console.error("Booking submission error", error);
+            toast.error(error.message || "Failed to submit booking");
+        }
+    };
+
+    const renderError = (field: string) => {
+        return errors[field] ? <span className="text-red-500 text-xs mt-1">{errors[field]}</span> : null;
     };
 
     return (
@@ -110,170 +247,182 @@ export function BookingForm({ academyId }: BookingFormProps) {
             {/* Hall Booking Information */}
             <Card className="border-none shadow-none">
                 <CardHeader className="px-0 pt-0">
-                    <CardTitle className="text-xl font-semibold text-primary">Hall Booking Information</CardTitle>
+                    <CardTitle className="text-[20px] font-normal text-[#271E4A] font-poppins ">Hall Booking Information</CardTitle>
                 </CardHeader>
                 <CardContent className="px-0 grid gap-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <Label>Academy</Label>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Academy" />
                             <Select
-                                value={hallInfo.academy}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, academy: val })}
+                                value={formData.academy || ""}
+                                onValueChange={(val) => updateField("academy", val)}
                             >
-                                {/* Assuming academyId is pre-selected, effectively read-only or selectable if passed usually */}
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select" />
+                                <SelectTrigger className="">
+                                    <SelectValue className="" placeholder="Select" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={academyId}>Current Academy</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
+                                    {academies.map((ac) => (
+                                        <SelectItem key={ac.id} value={ac.id}>{ac.name}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
+                            {renderError("academy")}
                         </div>
-                        <div className="space-y-2">
-                            <Label>Full Name</Label>
-                            <Input
-                                value={hallInfo.fullName}
-                                onChange={(e) => setHallInfo({ ...hallInfo, fullName: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Contact Number</Label>
-                            <Input
-                                value={hallInfo.contactNumber}
-                                onChange={(e) => setHallInfo({ ...hallInfo, contactNumber: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <Label>Merilian Code</Label>
-                            <Select
-                                value={hallInfo.merilianCode}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, merilianCode: val })}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="code1">Code 1</SelectItem>
-                                    <SelectItem value="code2">Code 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Attendees Vertical</Label>
-                            <Select
-                                value={hallInfo.attendeesVertical}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, attendeesVertical: val })}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="v1">Vertical 1</SelectItem>
-                                    <SelectItem value="v2">Vertical 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Attendees Department</Label>
-                            <Select
-                                value={hallInfo.attendeesDepartment}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, attendeesDepartment: val })}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="d1">Dept 1</SelectItem>
-                                    <SelectItem value="d2">Dept 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <Label>Training/Event Title</Label>
-                            <Select
-                                value={hallInfo.trainingTitle}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, trainingTitle: val })}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="t1">Title 1</SelectItem>
-                                    <SelectItem value="t2">Title 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Brief Description/Purpose</Label>
-                            <Input
-                                value={hallInfo.description}
-                                onChange={(e) => setHallInfo({ ...hallInfo, description: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Department</Label>
-                            <Select
-                                value={hallInfo.department}
-                                onValueChange={(val) => setHallInfo({ ...hallInfo, department: val })}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="dept1">Dept 1</SelectItem>
-                                    <SelectItem value="dept2">Dept 2</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2 flex flex-col">
-                            <Label>Event Start Date</Label>
+                            <FormLabel label="Merilian Code" />
+                            <Input
+                                value={formData.merilianCode}
+                                readOnly
+                                disabled
+                                className="bg-muted text-muted-foreground"
+                            />
+                            {renderError("merilianCode")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Full Name" />
+                            <Input
+                                value={formData.fullName}
+                                readOnly
+                                disabled
+                                className="bg-muted text-muted-foreground"
+                            />
+                            {renderError("fullName")}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Contact Number" />
+                            <Input
+                                value={formData.contactNumber}
+                                onChange={(e) => updateField("contactNumber", e.target.value)}
+                                maxLength={13}
+                            />
+                            {renderError("contactNumber")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Email" />
+                            <Input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => updateField("email", e.target.value)}
+                            />
+                            {renderError("email")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Attendees Vertical" />
+                            <Select
+                                value={formData.attendeesVertical}
+                                onValueChange={(val) => updateField("attendeesVertical", val)}
+                            >
+                                <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
+                                <SelectContent>
+                                    {masterData?.master_company.map((comp) => (
+                                        <SelectItem key={comp.company_code} value={comp.company_code}>
+                                            {comp.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {renderError("attendeesVertical")}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Attendees Department" />
+                            <Select
+                                value={formData.attendeesDepartment}
+                                onValueChange={(val) => updateField("attendeesDepartment", val)}
+                            >
+                                <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
+                                <SelectContent>
+                                    {masterData?.department_master.map((dept) => (
+                                        <SelectItem key={dept.name} value={dept.name}>
+                                            {dept.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {renderError("attendeesDepartment")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Training/Event Title" />
+                            <Input
+                                value={formData.trainingTitle}
+                                onChange={(e) => updateField("trainingTitle", e.target.value)}
+                            />
+                            {renderError("trainingTitle")}
+                        </div>
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Brief Description/Purpose" />
+                            <Input
+                                value={formData.description}
+                                onChange={(e) => updateField("description", e.target.value)}
+                            />
+                            {renderError("description")}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2 flex flex-col">
+                            <FormLabel label="Event Start Date" />
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-full pl-3 text-left font-normal",
-                                            !startDate && "text-muted-foreground"
+                                            "w-full pl-3 text-left font-normal bg-background rounded-[6px]",
+                                            !formData.startDate && "text-muted-foreground"
                                         )}
                                     >
-                                        {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                                        {formData.startDate ? format(formData.startDate, "PPP") : <span>Pick a date</span>}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 bg-white border-[#BEBEBE]" align="start">
                                     <Calendar
                                         mode="single"
-                                        selected={startDate}
-                                        onSelect={setStartDate}
+                                        selected={formData.startDate}
+                                        onSelect={(date) => updateField("startDate", date)}
                                         initialFocus
+                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                                     />
                                 </PopoverContent>
                             </Popover>
+                            {renderError("startDate")}
                         </div>
                         <div className="space-y-2 flex flex-col">
-                            <Label>Event End Date</Label>
+                            <FormLabel label="Event End Date" />
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-full pl-3 text-left font-normal",
-                                            !endDate && "text-muted-foreground"
+                                            "w-full pl-3 text-left font-normal bg-background rounded-[6px]",
+                                            !formData.endDate && "text-muted-foreground"
                                         )}
                                     >
-                                        {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                                        {formData.endDate ? format(formData.endDate, "PPP") : <span>Pick a date</span>}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 bg-white border-[#BEBEBE]" align="start">
                                     <Calendar
                                         mode="single"
-                                        selected={endDate}
-                                        onSelect={setEndDate}
+                                        selected={formData.endDate}
+                                        onSelect={(date) => updateField("endDate", date)}
                                         initialFocus
+                                        disabled={(date) => {
+                                            const today = new Date(new Date().setHours(0, 0, 0, 0));
+                                            if (date < today) return true;
+                                            if (formData.startDate && date < formData.startDate) return true;
+                                            return false;
+                                        }}
                                     />
                                 </PopoverContent>
                             </Popover>
+                            {renderError("endDate")}
                         </div>
                     </div>
                 </CardContent>
@@ -281,117 +430,196 @@ export function BookingForm({ academyId }: BookingFormProps) {
 
             {/* Day wise Plan */}
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Day wise Plan</h3>
+                <h3 className="text-[20px] font-normal text-[#271E4A] font-poppins ">Day wise Plan</h3>
+                {renderError("global.sessions")}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                        <Label>Training Hall</Label>
-                        <Select
-                            value={currentSession.trainingHall}
-                            onValueChange={(val) => setCurrentSession({ ...currentSession, trainingHall: val })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="lister-hall">Lister Hall</SelectItem>
-                                <SelectItem value="hall-2">Hall 2</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Booking Type</Label>
-                        <Select
-                            value={currentSession.bookingType}
-                            onValueChange={(val) => setCurrentSession({ ...currentSession, bookingType: val })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="vapi-academy">Vapi Academy</SelectItem>
-                                <SelectItem value="online">Online</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="Training Hall" />
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                        "w-full justify-between bg-background font-normal",
+                                        !sessionState.draft.trainingHall?.length && "text-muted-foreground"
+                                    )}
+                                >
+                                    {sessionState.draft.trainingHall && sessionState.draft.trainingHall.length > 0
+                                        ? (
+                                            <span className="truncate">
+                                                {sessionState.draft.trainingHall.map(id =>
+                                                    availableHalls.find(h => h.id === id)?.name || id
+                                                ).join(", ")}
+                                            </span>
+                                        )
+                                        : "Select Halls"
+                                    }
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0 bg-white" align="start">
+                                <div className="border-b px-3 py-2">
+                                    <p className="text-sm font-medium text-muted-foreground">Select Halls</p>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto p-1">
+                                    {availableHalls.length === 0 ? (
+                                        <div className="p-2 text-sm text-muted-foreground">No halls available</div>
+                                    ) : (
+                                        availableHalls.map((hall) => {
+                                            const isSelected = (sessionState.draft.trainingHall || []).includes(hall.id);
+                                            return (
+                                                <div
+                                                    key={hall.id}
+                                                    className={cn(
+                                                        "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                                                        isSelected ? "bg-accent/50" : ""
+                                                    )}
+                                                    onClick={() => {
+                                                        const current = sessionState.draft.trainingHall || [];
+                                                        const newValue = current.includes(hall.id)
+                                                            ? current.filter((id: string) => id !== hall.id)
+                                                            : [...current, hall.id];
+                                                        updateSessionDraft("trainingHall", newValue);
+                                                    }}
+                                                >
+                                                    <div className={cn(
+                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                    )}>
+                                                        <svg
+                                                            className={cn("h-4 w-4")}
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        >
+                                                            <polyline points="20 6 9 17 4 12" />
+                                                        </svg>
+                                                    </div>
+                                                    <span>{hall.name}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                        {renderError("session.trainingHall")}
                     </div>
                     <div className="space-y-2 flex flex-col">
-                        <Label>Event Date</Label>
+                        <FormLabel label="Booking Type" />
+                        <Select
+                            value={sessionState.draft.bookingType}
+                            onValueChange={(val) => updateSessionDraft("bookingType", val)}
+                        >
+                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
+                            <SelectContent>
+                                {masterData?.booking_type.map((bt) => (
+                                    <SelectItem key={bt.name} value={bt.name}>{bt.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {renderError("session.bookingType")}
+                    </div>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="Event Date" />
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
                                     className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !sessionDate && "text-muted-foreground"
+                                        "w-full pl-3 text-left font-normal bg-background rounded-[6px]",
+                                        !sessionState.draft.eventDate && "text-muted-foreground"
                                     )}
                                 >
-                                    {sessionDate ? format(sessionDate, "PPP") : <span>Pick a date</span>}
+                                    {sessionState.draft.eventDate ? format(sessionState.draft.eventDate, "PPP") : <span>Pick a date</span>}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
+                            <PopoverContent className="w-auto p-0 bg-white border-[#BEBEBE]" align="start">
                                 <Calendar
                                     mode="single"
-                                    selected={sessionDate}
-                                    onSelect={setSessionDate}
+                                    selected={sessionState.draft.eventDate}
+                                    onSelect={(date) => updateSessionDraft("eventDate", date)}
                                     initialFocus
+                                    disabled={(date) => {
+                                        // Optional: disable dates outside start/end range
+                                        if (formData.startDate && date < formData.startDate) return true;
+                                        if (formData.endDate && date > formData.endDate) return true;
+                                        return false;
+                                    }}
                                 />
                             </PopoverContent>
                         </Popover>
+                        {renderError("session.eventDate")}
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                    <div className="space-y-2">
-                        <Label>Event Start Time</Label>
-                        {/* Using text input for time for simplicity, ideally a TimePicker */}
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="Event Start Time" />
                         <Input
                             type="time"
-                            value={currentSession.startTime}
-                            onChange={(e) => setCurrentSession({ ...currentSession, startTime: e.target.value })}
+                            value={sessionState.draft.startTime}
+                            onChange={(e) => updateSessionDraft("startTime", e.target.value)}
                         />
+                        {renderError("session.startTime")}
                     </div>
-                    <div className="space-y-2">
-                        <Label>Event End Time</Label>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="Event End Time" />
                         <Input
                             type="time"
-                            value={currentSession.endTime}
-                            onChange={(e) => setCurrentSession({ ...currentSession, endTime: e.target.value })}
+                            value={sessionState.draft.endTime}
+                            onChange={(e) => updateSessionDraft("endTime", e.target.value)}
                         />
+                        {renderError("session.endTime")}
                     </div>
-                    <Button onClick={handleAddSession} className="bg-purple-600 hover:bg-purple-700 text-white w-full md:w-auto">
+                    <Button onClick={handleAddSession} className="bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white w-fit md:text-[20px] sm:[16px] cursor-pointer">
                         Add
                     </Button>
                 </div>
             </div>
 
             {/* Event Planning Table */}
-            {sessions.length > 0 && (
-                <div className="rounded-md border">
+            {sessionState.list.length > 0 && (
+                <div className="rounded-[24px] shadow-[0_4px_15px_0_rgba(216,210,252,0.64)]">
                     <div className="bg-muted/50 p-4">
-                        <h4 className="font-semibold mb-4">Event Planning</h4>
+                        <h4 className="text-[20px] font-normal text-[#271E4A] font-poppins py-1">Event Planning</h4>
                         <div className="relative w-full overflow-auto">
                             <table className="w-full caption-bottom text-sm text-left">
-                                <thead className="[&_tr]:border-b">
-                                    <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                        <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Training Hall</th>
-                                        <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Booking Type</th>
-                                        <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Event Date</th>
-                                        <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Start Time</th>
-                                        <th className="h-12 px-4 align-middle font-medium text-muted-foreground">End Time</th>
-                                        <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Action</th>
+                                <thead className="bg-[#EDF4FC] ">
+                                    <tr className="transition-colors font-normal hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                        <th className="h-12 px-2 align-middle font-normal text-muted-foreground rounded-l-[12px]">Training Hall</th>
+                                        <th className="h-12 px-2 align-middle font-normal text-muted-foreground">Booking Type</th>
+                                        <th className="h-12 px-2 align-middle font-normal text-muted-foreground">Event Date</th>
+                                        <th className="h-12 px-2 align-middle font-normal text-muted-foreground">Start Time</th>
+                                        <th className="h-12 px-2 align-middle font-normal text-muted-foreground">End Time</th>
+                                        <th className="h-12 px-2 align-middle font-normal text-muted-foreground rounded-r-[12px]">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="[&_tr:last-child]:border-0">
-                                    {sessions.map((session) => (
-                                        <tr key={session.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                            <td className="p-4 align-middle">{session.trainingHall}</td>
-                                            <td className="p-4 align-middle">{session.bookingType}</td>
-                                            <td className="p-4 align-middle">{session.eventDate ? format(session.eventDate, "dd-MM-yyyy") : "-"}</td>
-                                            <td className="p-4 align-middle">{session.startTime}</td>
-                                            <td className="p-4 align-middle">{session.endTime}</td>
-                                            <td className="p-4 align-middle">
+                                    {sessionState.list.map((session) => (
+                                        <tr key={session.id} className="border-b border-[#BEBEBE] transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                            <td className="p-2 align-middle">
+                                                {(Array.isArray(session.trainingHall) ? session.trainingHall : [session.trainingHall]).map((hallId: string) =>
+                                                    academies.flatMap(a => a.halls || []).find(h => h.id === hallId)?.name || hallId
+                                                ).join(", ")}
+                                            </td>
+                                            <td className="p-2 align-middle">{session.bookingType}</td>
+                                            <td className="p-2 align-middle">{session.eventDate ? format(session.eventDate, "dd-MM-yyyy") : "-"}</td>
+                                            <td className="p-2 align-middle">{session.startTime}</td>
+                                            <td className="p-2 align-middle">{session.endTime}</td>
+                                            <td className="p-2 align-middle">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     onClick={() => handleDeleteSession(session.id)}
-                                                    className="h-8 w-8 text-destructive"
+                                                    className="h-8 w-8 text-destructive cursor-pointer"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
                                                 </Button>
                                             </td>
                                         </tr>
@@ -405,77 +633,70 @@ export function BookingForm({ academyId }: BookingFormProps) {
 
             {/* Participants Form */}
             <div className="space-y-6">
-                <h3 className="text-xl font-semibold">Participants Form</h3>
+                <h3 className="text-[20px] font-normal text-[#271E4A] font-poppins">Participants Form</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                        <Label>Number of Participants</Label>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="Number of Participants" />
                         <Input
-                            value={participantsInfo.numberOfParticipants}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, numberOfParticipants: e.target.value })}
+                            value={formData?.numberOfParticipants}
+                            onChange={(e) => updateField("numberOfParticipants", e.target.value)}
                         />
+                        {renderError("numberOfParticipants")}
                     </div>
-                    <div className="space-y-2">
-                        <Label>IT Requirements</Label>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="IT Requirements" />
                         <Select
-                            value={participantsInfo.itRequirements}
-                            onValueChange={(val) => setParticipantsInfo({ ...participantsInfo, itRequirements: val })}
+                            value={formData.itRequirements}
+                            onValueChange={(val) => updateField("itRequirements", val)}
                         >
-                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="req1">Requirement 1</SelectItem>
-                                <SelectItem value="req2">Requirement 2</SelectItem>
+                                {masterData?.it_requirements.map((it) => (
+                                    <SelectItem key={it.name} value={it.name}>{it.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
+                        {renderError("itRequirements")}
                     </div>
-                    <div className="space-y-2">
-                        <Label>Specific Requirements, If any</Label>
-                        <Select
-                            value={participantsInfo.specificRequirements}
-                            onValueChange={(val) => setParticipantsInfo({ ...participantsInfo, specificRequirements: val })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="spec1">Specific 1</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="Specific Requirements, If any" required={false} />
+                        <Input
+                            value={formData.specificRequirements}
+                            onChange={(e) => updateField("specificRequirements", e.target.value)}
+                        />
+                        {renderError("specificRequirements")}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input
-                            type="email"
-                            value={participantsInfo.email}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, email: e.target.value })}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>MATS Event</Label>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="MATS Event" />
                         <Select
-                            value={participantsInfo.matsEvent}
-                            onValueChange={(val) => setParticipantsInfo({ ...participantsInfo, matsEvent: val })}
+                            value={formData.matsEvent}
+                            onValueChange={(val) => updateField("matsEvent", val)}
                         >
-                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                            <SelectTrigger className="bg-background"><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="yes">Yes</SelectItem>
                                 <SelectItem value="no">No</SelectItem>
                             </SelectContent>
                         </Select>
+                        {renderError("matsEvent")}
                     </div>
-                    <div className="space-y-2">
-                        <Label>MATS Request No</Label>
+                    <div className="space-y-2 flex flex-col">
+                        <FormLabel label="MATS Request No" />
                         <Input
-                            value={participantsInfo.matsRequestNo}
-                            onChange={(e) => setParticipantsInfo({ ...participantsInfo, matsRequestNo: e.target.value })}
+                            value={formData.matsRequestNo}
+                            onChange={(e) => updateField("matsRequestNo", e.target.value)}
                         />
+                        {renderError("matsRequestNo")}
                     </div>
                 </div>
             </div>
 
-            <div className="flex justify-end gap-4 pt-4 border-t">
-                <Button variant="outline" size="lg">Back</Button>
-                <Button size="lg" className="bg-purple-600 hover:bg-purple-700 text-white">Submit</Button>
+            <div className="flex justify-end gap-4 pt-4">
+                <Button variant="outline" size="lg" className="text-[20px]" onClick={onCancel || (() => router.back())}>Back</Button>
+                <Button size="lg" className="bg-[#7D3FD0] hover:bg-[#7D3FD0] text-white text-[20px] cursor-pointer" onClick={handleSubmit}>Submit</Button>
             </div>
         </div>
     );

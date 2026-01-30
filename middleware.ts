@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
     const token = request.cookies.get('auth_token')?.value;
     const { pathname } = request.nextUrl;
 
     // 1. Define guarded routes
-    const protectedRoutes = ['/book', '/calendar', '/my-bookings'];
+    // Removed '/book' and '/calendar' to make them public
+    const protectedRoutes = ['/my-bookings'];
     const isAuthRoute = protectedRoutes.some(route => pathname.startsWith(route)) || pathname.startsWith('/admin');
     const isAdminRoute = pathname.startsWith('/admin');
 
@@ -18,11 +19,18 @@ export function proxy(request: NextRequest) {
             return NextResponse.redirect(loginUrl);
         }
 
+        let user;
+        try {
+            user = JSON.parse(decodeURIComponent(token));
+        } catch (e) {
+            // If parse fails (maybe explicitly invalid or raw string issue), clear and redirect
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
         // 2. Check Role (if Admin route)
         if (isAdminRoute) {
             try {
-                const user = JSON.parse(token);
-                if (user.role !== 'ADMIN') {
+                // Case insensitive check
+                if (user.role?.toUpperCase() !== 'ACADEMY ADMIN') {
                     // Trusted user but not Admin -> Redirect to Home (or 403)
                     return NextResponse.redirect(new URL('/', request.url));
                 }
@@ -33,14 +41,14 @@ export function proxy(request: NextRequest) {
         }
     }
 
-    // 3. Prevent authenticated users from visiting Login/Register
-    if (pathname === '/login' || pathname === '/register') {
+    // 3. Prevent authenticated users from visiting Login
+    if (pathname === '/login') {
         if (token) {
             // Redirect based on role if possible
             try {
-                const user = JSON.parse(token);
-                if (user.role === 'ADMIN') {
-                    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+                const user = JSON.parse(decodeURIComponent(token));
+                if (user.role?.toUpperCase() === 'ACADEMY ADMIN') {
+                    return NextResponse.redirect(new URL('/dashboard', request.url));
                 }
             } catch (e) { }
             return NextResponse.redirect(new URL('/', request.url));
@@ -57,6 +65,5 @@ export const config = {
         '/my-bookings',
         '/admin/:path*',
         '/login',
-        '/register',
     ],
 };

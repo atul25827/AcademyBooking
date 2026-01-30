@@ -4,22 +4,15 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 // Types
-export type UserRole = "USER" | "ADMIN";
-
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: UserRole;
-    avatarUrl?: string;
-}
+import { api } from "@/lib/api";
+import { User, UserRole } from "@/types";
 
 interface AuthContextType {
     user: User | null;
     role: UserRole | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<void>;
     logout: () => void;
 }
 
@@ -46,48 +39,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = async (email: string, password: string) => {
-        setIsLoading(true);
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            const result = await api.login(email, password);
 
-            // Mock user data - In real app, this comes from API
-            const mockUser: User = {
-                id: "1",
-                name: "Test User",
-                email,
-                role: email.includes("admin") ? "ADMIN" : "USER", // Simple role simulation
-                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-            };
+            if (result.error) {
+                throw new Error(result.error);
+            }
 
-            setUser(mockUser);
-            localStorage.setItem("academy_auth_user", JSON.stringify(mockUser));
+            const data = result.data;
+            const apiUser = {
+                id: data.message.user_id || "unknown",
+                name: data.message.full_name || data.message.user_id,
+                email: data.message.user_id,
+                role: data.message.role ? data.message.role : "Academy User",
+                avatarUrl: data.message.image,
+                employeeCode: data.message.employee_code,
+            } as User;
 
-            // Set cookie for middleware
-            // Expires in 7 days
-            document.cookie = `auth_token=${JSON.stringify(mockUser)}; path=/; max-age=${60 * 60 * 24 * 7}`;
+            if (data.message.role && (data.message.role.toLowerCase() === 'system manager' || data.message.role.toLowerCase().includes('academy admin'))) {
+                apiUser.role = 'Academy Admin';
+            } else {
+                apiUser.role = 'Academy User';
+            }
 
-            // Redirect based on role
-            if (mockUser.role === "ADMIN") {
-                router.push("/admin/dashboard");
+            setUser(apiUser);
+            localStorage.setItem("academy_auth_user", JSON.stringify(apiUser));
+            document.cookie = `auth_token=${encodeURIComponent(JSON.stringify(apiUser))}; path=/; max-age=${60 * 60 * 24 * 7}`;
+
+            if (apiUser.role.toUpperCase() === "ACADEMY ADMIN") {
+                router.push("/dashboard");
             } else {
                 router.push("/");
             }
-
-            return true;
         } catch (error) {
             console.error("Login failed:", error);
-            return false;
-        } finally {
-            setIsLoading(false);
+            throw error;
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
+        await api.logout();
         setUser(null);
         localStorage.removeItem("academy_auth_user");
         document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        router.push("/login"); // Or router.push("/") if preferred
+        document.cookie = "sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "system_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "full_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+        router.push("/login");
     };
 
     return (

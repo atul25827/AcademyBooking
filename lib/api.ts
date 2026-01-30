@@ -1,107 +1,347 @@
-export type Academy = {
-    id: string;
-    name: string;
-    location: string;
-    rating: number;
-    pricePerSession: number;
-    imageUrl: string;
-    sports: string[];
-};
+import { Academy, Hall, Booking, BookingStatsType, PaginatedResponse } from "@/types";
+import { MOCK_ACADEMIES, MOCK_HALLS, MOCK_BOOKINGS } from "@/constants/mock-data";
 
-export type Booking = {
-    id: string;
-    academyId: string;
-    date: string;
-    timeSlot: string;
-    status: "upcoming" | "completed" | "cancelled";
-};
-
-// Mock data
-const MOCK_ACADEMIES: Academy[] = [
-    {
-        id: "ac1",
-        name: "Elite Football Academy",
-        location: "Bangalore, India",
-        rating: 4.8,
-        pricePerSession: 799,
-        imageUrl: "/takshila_hall.jpg",// Placeholder, using next defaults for now or I'll use placeholders
-        sports: ["Football"],
-    },
-    {
-        id: "ac2",
-        name: "Pro Tennis Center",
-        location: "Pune, India",
-        rating: 4.6,
-        pricePerSession: 699,
-        imageUrl: "/takshila_hall.jpg",
-        sports: ["Tennis"],
-    },
-    {
-        id: "ac3",
-        name: "All Star Multi Sports",
-        location: "Mumbai, India",
-        rating: 4.9,
-        pricePerSession: 899,
-        imageUrl: "/takshila_hall.jpg",
-        sports: ["Cricket", "Football", "Basketball"],
-    },
-    {
-        id: "ac4",
-        name: "Elite Football Academy",
-        location: "Bangalore, India",
-        rating: 4.8,
-        pricePerSession: 799,
-        imageUrl: "/takshila_hall.jpg", // Placeholder, using next defaults for now or I'll use placeholders
-        sports: ["Football"],
-    },
-    {
-        id: "ac5",
-        name: "Pro Tennis Center",
-        location: "Pune, India",
-        rating: 4.6,
-        pricePerSession: 699,
-        imageUrl: "/takshila_hall.jpg",
-        sports: ["Tennis"],
-    },
-    {
-        id: "ac6",
-        name: "All Star Multi Sports",
-        location: "Mumbai, India",
-        rating: 4.9,
-        pricePerSession: 899,
-        imageUrl: "/takshila_hall.jpg",
-        sports: ["Cricket", "Football", "Basketball"],
-    },
-];
-
-const MOCK_BOOKINGS: Booking[] = [
-    {
-        id: "b1",
-        academyId: "ac1",
-        date: new Date().toISOString().slice(0, 10),
-        timeSlot: "7:00 - 8:00 AM",
-        status: "upcoming",
-    },
-    {
-        id: "b2",
-        academyId: "ac2",
-        date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-        timeSlot: "6:00 - 7:00 PM",
-        status: "upcoming",
-    },
-];
+export type { Academy, Hall, Booking }; // Re-export for backward compatibility if needed, or just let components import from types
 
 export const api = {
-    async listAcademies(): Promise<Academy[]> {
-        await new Promise((r) => setTimeout(r, 400));
-        return MOCK_ACADEMIES;
+    async getCalendarBookings(start_date: string, end_date: string, academyId?: string, hallId?: string): Promise<Booking[]> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            throw new Error("Configuration error: NEXT_PUBLIC_FRAPPE_URL is not defined");
+        }
+        const params = new URLSearchParams({
+            start_date,
+            end_date,
+        });
+        if (academyId && academyId !== 'all') params.append('academy', academyId);
+        if (hallId && hallId !== 'all') params.append('hall', hallId);
+
+        try {
+            const res = await fetch(`${baseUrl}/api/method/academy.api.booking.get_calendar_bookings?${params.toString()}`);
+            if (!res.ok) throw new Error('Failed to fetch calendar bookings');
+            const data = await res.json();
+            return data.message || [];
+        } catch (error) {
+            console.error("Error fetching calendar bookings:", error);
+            return [];
+        }
     },
-    async listBookings(): Promise<Booking[]> {
-        await new Promise((r) => setTimeout(r, 400));
-        return MOCK_BOOKINGS;
+
+    async login(usr: string, pwd: string): Promise<{ data?: any; error?: string }> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            console.error("NEXT_PUBLIC_BASE_URL is not defined");
+            return { error: "Configuration error" };
+        }
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.auth.login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ usr, pwd }),
+                credentials: 'include', // Important for cookies
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                let errorMessage = 'Login failed';
+
+                if (errorData.message) {
+                    if (typeof errorData.message === 'string') {
+                        errorMessage = errorData.message;
+                    } else if (typeof errorData.message === 'object') {
+                        // Try to extract a readable message if possible
+                        errorMessage = (errorData.message as any).message || JSON.stringify(errorData.message);
+                    } else {
+                        errorMessage = String(errorData.message);
+                    }
+                } else if (errorData.exception) {
+                    errorMessage = errorData.exception;
+                }
+
+                return { error: errorMessage };
+            }
+
+            return { data: await response.json() };
+        } catch (error: any) {
+            console.error("Login network error:", error);
+            return { error: error.message || "Network error occurred during login" };
+        }
     },
-    async getAcademy(id: string): Promise<Academy | undefined> {
-        await new Promise((r) => setTimeout(r, 200));
-        return MOCK_ACADEMIES.find(a => a.id === id);
-    }
+    async logout() {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+        if (!baseUrl) return;
+
+        try {
+            await fetch(`${baseUrl}/api/method/academy.api.auth.logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
+    },
+    async getAcademiesWithHalls(): Promise<Academy[]> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            console.error("NEXT_PUBLIC_BASE_URL (or FRAPPE_URL) is not defined");
+            // Fallback to empty array or mock if strictly needed, but better to return empty to signal issue
+            return [];
+        }
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.academy.get_academies_with_halls`, {
+                cache: 'no-store' // Ensure fresh data
+            });
+
+            if (!response.ok) {
+                console.error("Failed to fetch academies");
+                return [];
+            }
+            const json = await response.json();
+            // Expected response: { message: "Data Fetched Successfully", data: [...] }
+            // Adjust based on actual API response structure provided by user
+            const rawData = json.message.data || [];
+
+            return rawData.map((item: any) => ({
+                id: item.name, // "name" from API is the ID
+                name: item.academy_name,
+                imageUrl: item.attachment ? (item.attachment.startsWith('http') ? item.attachment : `${baseUrl}${encodeURI(item.attachment)}`) : '', // Handle potential relative URLs and encode spaces
+                halls: (item.halls || []).map((h: any) => ({
+                    id: h.name,
+                    name: h.hall_name,
+                    academyId: h.academy_name, // Or item.name if we want to link by ID
+                    capacity: h.capacity || 0,
+                    wifi: h.wifi || 0,
+                    screen: h.screen || 0
+                }))
+            }));
+        } catch (error) {
+            console.error("Error fetching academies:", error);
+            return [];
+        }
+    },
+
+    async createBooking(bookingData: any) {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            throw new Error("Configuration error: NEXT_PUBLIC_FRAPPE_URL is not defined");
+        }
+
+        const response = await fetch(`${baseUrl}/api/method/academy.api.booking.create_booking`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(bookingData),
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            let errorMessage = result.message || result.exception || "Failed to create booking";
+
+            // 1. Check for standard Frappe server messages (most actionable errors)
+            if (result._server_messages) {
+                try {
+                    // _server_messages is a JSON string of a list of JSON strings
+                    const messages = JSON.parse(result._server_messages);
+                    errorMessage = JSON.parse(messages[0]).message;
+                } catch (e) { /* ignore parse error */ }
+            }
+
+            // 2. Handle case where message is a nested object or JSON string
+            if (typeof errorMessage === 'object' && errorMessage.message) {
+                errorMessage = errorMessage.message;
+            } else if (typeof errorMessage === 'string' && errorMessage.trim().startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(errorMessage);
+                    if (parsed.message) errorMessage = parsed.message;
+                } catch (e) { /* ignore parse error */ }
+            }
+
+            throw new Error(String(errorMessage));
+        }
+
+        return result;
+    },
+
+    async getUserBookingStats(headers: Record<string, string> = {}): Promise<{ message: BookingStatsType }> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            throw new Error("Configuration error: NEXT_PUBLIC_FRAPPE_URL is not defined");
+        }
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_user_booking_stats`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers
+                },
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                // Return default if auth fails or other error, ensuring page doesn't crash
+                console.error("Failed to fetch stats, status:", response.status);
+                return {
+                    message: {
+                        total_bookings: 0,
+                        total_approved: 0,
+                        total_pending: 0,
+                        total_rejected: 0
+                    }
+                };
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("Error fetching booking stats:", error);
+            // Return default zero stats on error to handle gracefully
+            return {
+                message: {
+                    total_bookings: 0,
+                    total_approved: 0,
+                    total_pending: 0,
+                    total_rejected: 0
+                }
+            };
+        }
+    },
+
+    async getPaginatedBookings(
+        page: number = 1,
+        limit: number = 10,
+        filters: { academy?: string; hall?: string; status?: string } = {}
+    ): Promise<PaginatedResponse<Booking>> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) {
+            throw new Error("Configuration error: NEXT_PUBLIC_FRAPPE_URL is not defined");
+        }
+
+        const queryParams = new URLSearchParams({
+            page_number: page.toString(),
+            page_length: limit.toString(),
+        });
+
+        if (filters.academy && filters.academy !== "all") queryParams.append("academy", filters.academy);
+        if (filters.hall && filters.hall !== "all") queryParams.append("hall", filters.hall);
+        if (filters.status && filters.status !== "all") queryParams.append("status", filters.status);
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_booking_list?${queryParams.toString()}`, {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch bookings");
+            }
+
+            const json = await response.json();
+            return json.message; // Assuming the structure based on user description
+        } catch (error) {
+            console.error("Error fetching paginated bookings:", error);
+            return {
+                data: [],
+                total_count: 0,
+                page_number: page,
+                page_length: limit
+            };
+        }
+    },
+
+    async getApproverStats(): Promise<BookingStatsType> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) throw new Error("Configuration error");
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_approver_stats`, {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+            });
+            if (!response.ok) throw new Error("Failed to fetch stats");
+            const json = await response.json();
+            return json.message;
+        } catch (error) {
+            console.error("Error fetching stats:", error);
+            return { total_bookings: 0, total_approved: 0, total_rejected: 0, total_pending: 0 };
+        }
+    },
+
+    async getApproverBookingList(
+        page: number = 1,
+        limit: number = 10,
+        filters: { status?: string; search?: string; academy?: string; hall?: string } = {}
+    ): Promise<PaginatedResponse<Booking>> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) throw new Error("Configuration error");
+
+        const params = new URLSearchParams({
+            page_number: page.toString(),
+            page_length: limit.toString()
+        });
+        if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+        if (filters.search) params.append('search_name', filters.search);
+        if (filters.academy && filters.academy !== 'all') params.append('academy', filters.academy);
+        if (filters.hall && filters.hall !== 'all') params.append('hall', filters.hall);
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.get_approver_booking_list?${params.toString()}`, {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+            });
+            if (!response.ok) throw new Error("Failed to fetch bookings");
+
+            const json = await response.json();
+
+            return {
+                data: json.message.data || [],
+                total_count: json.message.total_count,
+                page_number: json.message.page_number,
+                page_length: json.message.page_length
+            };
+        } catch (error) {
+            console.error("Error fetching approver bookings:", error);
+            return {
+                data: [],
+                total_count: 0,
+                page_number: page,
+                page_length: limit
+            };
+        }
+    },
+
+    async updateBookingStatus(bookingId: string, action: "Approve" | "Reject", remarks?: string): Promise<any> {
+        const baseUrl = process.env.NEXT_PUBLIC_FRAPPE_URL;
+        if (!baseUrl) throw new Error("Configuration error");
+
+        try {
+            const response = await fetch(`${baseUrl}/api/method/academy.api.booking.update_booking_status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ booking_id: bookingId, action, remarks }),
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || "Failed to update status");
+            }
+            return await response.json();
+        } catch (error) {
+            console.error("Error updating booking status", error);
+            throw error;
+        }
+    },
 };

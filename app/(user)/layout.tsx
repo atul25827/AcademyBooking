@@ -1,44 +1,34 @@
-"use client";
+import { AcademyProvider } from "@/context/academy-context";
+import { api, Academy } from "@/lib/api";
+import { UserLayoutContent } from "./user-layout-content";
 
-import { useAuth } from "@/context/auth-context";
-import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-// Main header handles auth state.
-
-export default function UserLayout({
+export default async function UserLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { isAuthenticated, isLoading } = useAuth();
-    const router = useRouter();
-    const pathname = usePathname();
-
-    useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
-            router.push("/login?redirect=" + pathname);
-        }
-    }, [isLoading, isAuthenticated, router, pathname]);
-
-    if (isLoading) {
-        return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+    // Fetch data on the server
+    // This runs on the server, ensuring fast initial load and no client waterfalls
+    let academies: Academy[] = [];
+    try {
+        academies = await api.getAcademiesWithHalls();
+    } catch (error) {
+        console.error("Failed to fetch initial academy data", error);
+        // We gracefully handle error so the page still loads (maybe with empty data)
     }
 
-    if (!isAuthenticated) return null;
+    // Note: In Server Components, we cannot use usePathname directly if we want to be async/await for data fetching
+    // BUT, layout.tsx in Next.js App Router (Server) doesn't have easy access to pathname.
+    // However, since we are fetching data, we MUST be a Server Component to use async/await.
+    // usePathname is Client Component only.
 
-
+    // SOLUTION: We will move the "Background Logic" to a Client Component wrapper 
+    // OR we will make the data fetching happen in a separate server component wrapper.
+    // Given the constraints, let's keep the layout simple and assume the Client Components will handle their own specific backgrounds 
+    // OR we use a Client Component for the main wrapper.
     return (
-        <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1 w-full container max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-                {children}
-            </main>
-            <Footer />
-        </div>
+        <AcademyProvider initialData={academies}>
+            <UserLayoutContent>{children}</UserLayoutContent>
+        </AcademyProvider>
     );
-
 }

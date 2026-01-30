@@ -4,44 +4,19 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, MapPin } from "lucide-react";
 import Image from "next/image";
 import { useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-
+import { useAcademy } from "@/context/academy-context";
 // Mock Data for Academies
-const ACADEMIES = [
-    {
-        id: 1,
-        title: "Vapi, Academy",
-        image: "/takshila_hall.jpg",
-        location: "Vapi, Gujarat"
-    },
-    {
-        id: 2,
-        title: "Mumbai, Center",
-        image: "/takshila_hall.jpg",
-        location: "Mumbai, Maharashtra"
-    },
-    {
-        id: 3,
-        title: "Delhi, Hub",
-        image: "/takshila_hall.jpg",
-        location: "New Delhi"
-    },
-    {
-        id: 4,
-        title: "Bangalore, Campus",
-        image: "/takshila_hall.jpg",
-        location: "Bangalore, Karnataka"
-    },
-    {
-        id: 5,
-        title: "Hyderabad, Wing",
-        image: "/takshila_hall.jpg",
-        location: "Hyderabad, Telangana"
-    }
-];
 
 export function AcademyLocations() {
+    const router = useRouter();
+    const { academies } = useAcademy();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const handleCardClick = (id: number | string) => {
+        router.push(`/book?academyId=${id}`);
+    };
 
     const scroll = (direction: 'left' | 'right') => {
         if (scrollContainerRef.current) {
@@ -57,7 +32,6 @@ export function AcademyLocations() {
             });
         }
     };
-
     return (
         <section className="py-8 md:py-12 relative overflow-hidden">
             <div className="container px-4 md:px-6 max-w-7xl mx-auto">
@@ -67,7 +41,7 @@ export function AcademyLocations() {
                         initial={{ opacity: 0, x: -20 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl font-poppins font-medium text-[#33398A]"
+                        className="text-[20px] md:text-[24px] font-poppins font-medium text-[#33398A]"
                     >
                         Meril Academy
                     </motion.h2>
@@ -77,7 +51,7 @@ export function AcademyLocations() {
                             variant="outline"
                             size="icon"
                             onClick={() => scroll('left')}
-                            className="rounded-full w-12 h-12 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
+                            className="rounded-full cursor-pointer md:w-12 md:h-12 w-10 h-10 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
@@ -85,7 +59,7 @@ export function AcademyLocations() {
                             variant="outline"
                             size="icon"
                             onClick={() => scroll('right')}
-                            className="rounded-full w-12 h-12 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
+                            className="rounded-full cursor-pointer md:w-12 md:h-12 w-10 h-10 border-slate-200 hover:bg-[#33398A] hover:text-white hover:border-[#33398A] transition-colors"
                         >
                             <ArrowRight className="w-5 h-5" />
                         </Button>
@@ -98,19 +72,21 @@ export function AcademyLocations() {
                     className="flex gap-6 overflow-x-auto pb-8 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0"
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
-                    {ACADEMIES.map((academy, index) => (
+                    {academies?.map((academy, index) => (
                         <motion.div
                             key={academy.id}
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: index * 0.1 }}
-                            className="flex-shrink-0 w-[85vw] sm:w-[400px] md:w-[486px] h-[320px] relative rounded-[16px] overflow-hidden snap-center group cursor-pointer"
+                            onClick={() => handleCardClick(academy.id)}
+                            className="shrink-0 w-[85vw] sm:w-[400px] md:w-[486px] h-[320px] relative rounded-[16px] overflow-hidden snap-center group cursor-pointer"
                         >
                             <Image
-                                src={academy.image}
-                                alt={academy.title}
+                                src={academy.imageUrl}
+                                alt={academy.name}
                                 fill
+                                unoptimized={true}
                                 className="object-cover group-hover:scale-105 transition-transform duration-700"
                             />
 
@@ -119,7 +95,7 @@ export function AcademyLocations() {
                                 {/* The Purple Block */}
                                 <div className="bg-[#7D3FD0] rounded-tl-[24px] rounded-br-[16px] w-[245px] h-[50px] flex items-center justify-center relative">
                                     <span className="text-white font-poppins text-lg font-medium">
-                                        {academy.title}
+                                        {academy.name}
                                     </span>
                                 </div>
                             </div>
