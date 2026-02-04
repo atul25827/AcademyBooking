@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Calendar, MapPin } from "lucide-react";
 import { useAcademy } from "@/context/academy-context";
+import { useBookingExport } from "@/hooks/use-booking-export";
+import { formatBookingForExport } from "@/lib/excel-export";
 
 // Helper for status badge (kept from original)
 const getStatusBadge = (status: string) => {
@@ -73,6 +75,19 @@ export function MyBookingsList() {
         }
     }, [currentPage, pageLength, academyFilter, hallFilter, statusFilter]);
 
+    const { handleExport, isExporting } = useBookingExport(
+        async (page, limit, filters) => {
+            const data = await api.getPaginatedBookings(
+                page,
+                limit,
+                filters
+            );
+            return { data: data?.data || [], total_count: data?.total_count || 0 };
+        },
+        formatBookingForExport,
+        "Bookings"
+    );
+
     // Initial Fetch & Refetch on changes
     useEffect(() => {
         fetchBookings();
@@ -135,8 +150,17 @@ export function MyBookingsList() {
                     </Select>
                 </div>
 
-                <Button variant="outline" className="w-full md:w-auto h-[44px] px-6 rounded-[6px] border-[#B4B4B4] text-[#271E4A] hover:bg-slate-50">
-                    Export
+                <Button
+                    variant="outline"
+                    className="w-full md:w-auto h-[44px] px-6 rounded-[6px] border-[#B4B4B4] text-[#271E4A] hover:bg-slate-50"
+                    onClick={() => handleExport({
+                        academy: academyFilter,
+                        hall: hallFilter,
+                        status: statusFilter
+                    })}
+                    disabled={isExporting}
+                >
+                    {isExporting ? "Exporting..." : "Export"}
                 </Button>
             </div>
 

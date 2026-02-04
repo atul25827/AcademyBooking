@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { MapPin, Calendar, Search } from "lucide-react"; // Added Search icon
 import { useAcademy } from "@/context/academy-context";
 import { api } from "@/lib/api";
+import { useBookingExport } from "@/hooks/use-booking-export";
+import { formatBookingForExport } from "@/lib/excel-export";
 
 interface BookingListProps {
     onViewDetails: (id: string) => void;
@@ -52,6 +54,19 @@ export function BookingList({ onViewDetails }: BookingListProps) {
             setLoading(false);
         }
     }, [currentPage, itemsPerPage, statusFilter, academyFilter, hallFilter, searchTerm]);
+
+    const { handleExport, isExporting } = useBookingExport(
+        async (page, limit, filters) => {
+            const response = await api.getApproverBookingList(
+                page,
+                limit,
+                filters
+            );
+            return { data: response.data, total_count: response.total_count };
+        },
+        formatBookingForExport,
+        "Bookings"
+    );
 
 
     useEffect(() => {
@@ -144,8 +159,18 @@ export function BookingList({ onViewDetails }: BookingListProps) {
                         </SelectContent>
                     </Select>
 
-                    <Button variant="outline" className="w-full md:w-auto h-[44px] px-6 rounded-[6px] border-[#B4B4B4] text-[#271E4A] hover:bg-slate-50">
-                        Export
+                    <Button
+                        variant="outline"
+                        className="w-full md:w-auto h-[44px] px-6 rounded-[6px] border-[#B4B4B4] text-[#271E4A] hover:bg-slate-50"
+                        onClick={() => handleExport({
+                            status: statusFilter,
+                            academy: academyFilter,
+                            hall: hallFilter,
+                            search: searchTerm
+                        })}
+                        disabled={isExporting}
+                    >
+                        {isExporting ? "Exporting..." : "Export"}
                     </Button>
                 </div>
             </div>

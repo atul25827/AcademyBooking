@@ -24,18 +24,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     // Load auth state from localStorage on mount
+    // Load auth state from localStorage or Cookie on mount
+    // Load auth state from Cookie ONLY (Ideal Source of Truth for Next.js)
     useEffect(() => {
-        const storedUser = localStorage.getItem("academy_auth_user");
-        if (storedUser) {
+        const checkAuth = () => {
             try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                console.error("Failed to parse auth user", e);
-                console.error("Failed to parse auth token from cookie", e);
-                document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; // Clear invalid cookie
+                // Parse auth_token from cookies
+                const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+                    const [key, value] = cookie.trim().split('=');
+                    acc[key] = value;
+                    return acc;
+                }, {} as Record<string, string>);
+
+                if (cookies.auth_token) {
+                    const userData = JSON.parse(decodeURIComponent(cookies.auth_token));
+                    setUser(userData);
+                }
+            } catch (error) {
+                console.error("Failed to restore auth session from cookie:", error);
+                // Clear potentially corrupt cookie
+                document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+            } finally {
+                setIsLoading(false);
             }
-        }
-        setIsLoading(false);
+        };
+
+        checkAuth();
     }, []);
 
     const login = async (email: string, password: string) => {
@@ -63,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             setUser(apiUser);
-            localStorage.setItem("academy_auth_user", JSON.stringify(apiUser));
+            // We use Cookie as the single source of truth for Middleware compatibility
             document.cookie = `auth_token=${encodeURIComponent(JSON.stringify(apiUser))}; path=/; max-age=${60 * 60 * 24 * 7}`;
 
             if (apiUser.role.toUpperCase() === "ACADEMY ADMIN") {
@@ -80,7 +94,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = async () => {
         await api.logout();
         setUser(null);
-        localStorage.removeItem("academy_auth_user");
         document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         document.cookie = "sid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         document.cookie = "system_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

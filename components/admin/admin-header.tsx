@@ -29,7 +29,7 @@ export function AdminHeader({ title }: AdminHeaderProps) {
             <div className="flex items-center gap-4">
                 <div className="text-right hidden sm:block">
                     <p className="text-sm font-medium text-[#271E4A]">{displayUser.name}</p>
-                    <p className="text-xs text-gray-500">{displayUser.role}</p>
+                    <p className="text-xs text-gray-500">{displayUser.role == "Academy Admin" ? "Approver" : "User"}</p>
                 </div>
 
                 <DropdownMenu>
